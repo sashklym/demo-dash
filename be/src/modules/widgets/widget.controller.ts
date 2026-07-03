@@ -45,6 +45,7 @@ export class WidgetController implements Controller {
       BASE,
       {
         schema: {
+          operationId: 'listWidgets',
           tags: ['widgets'],
           summary: 'List a dashboard’s widgets (ordered by position)',
           params: DashboardScopeParams,
@@ -61,6 +62,7 @@ export class WidgetController implements Controller {
       BASE,
       {
         schema: {
+          operationId: 'createWidget',
           tags: ['widgets'],
           summary: 'Add a widget to a dashboard',
           params: DashboardScopeParams,
@@ -81,6 +83,7 @@ export class WidgetController implements Controller {
       `${BASE}/reorder`,
       {
         schema: {
+          operationId: 'reorderWidgets',
           tags: ['widgets'],
           summary: 'Reorder a dashboard’s widgets',
           params: DashboardScopeParams,
@@ -98,6 +101,7 @@ export class WidgetController implements Controller {
       `${BASE}/:id`,
       {
         schema: {
+          operationId: 'updateWidget',
           tags: ['widgets'],
           summary: 'Update a widget (title, text, or position)',
           params: WidgetItemParams,
@@ -115,6 +119,7 @@ export class WidgetController implements Controller {
       `${BASE}/:id`,
       {
         schema: {
+          operationId: 'deleteWidget',
           tags: ['widgets'],
           summary: 'Delete a widget',
           params: WidgetItemParams,
@@ -132,6 +137,7 @@ export class WidgetController implements Controller {
       `${BASE}/:id/data`,
       {
         schema: {
+          operationId: 'getWidgetData',
           tags: ['widgets'],
           summary: 'Deterministic chart data for a chart widget',
           params: WidgetItemParams,
@@ -150,6 +156,7 @@ export class WidgetController implements Controller {
       `${BASE}/:id/regenerate`,
       {
         schema: {
+          operationId: 'regenerateWidget',
           tags: ['widgets'],
           summary: 'Reseed a chart widget (new random data)',
           params: WidgetItemParams,

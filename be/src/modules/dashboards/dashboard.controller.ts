@@ -18,6 +18,7 @@ export class DashboardController implements Controller {
       '/api/dashboards',
       {
         schema: {
+          operationId: 'createDashboard',
           tags: ['dashboards'],
           summary: 'Create a new anonymous dashboard',
           description: 'Returns a fresh capability key. Persist it to restore the dashboard later.',
@@ -36,6 +37,7 @@ export class DashboardController implements Controller {
       '/api/dashboards/:key',
       {
         schema: {
+          operationId: 'getDashboard',
           tags: ['dashboards'],
           summary: 'Fetch a dashboard by key',
           description: 'Used by the frontend to validate a pasted key and restore a saved dashboard.',

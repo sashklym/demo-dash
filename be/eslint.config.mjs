@@ -21,4 +21,11 @@ export default tseslint.config(
       'no-console': 'off',
     },
   },
+  {
+    // CLI scripts print to stdout by design.
+    files: ['scripts/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
 );
