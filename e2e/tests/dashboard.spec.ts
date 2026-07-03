@@ -20,6 +20,9 @@ test('golden path: create → add widgets → persist text → reload → delete
   // Charts render their data
   await expect(page.getByTestId('widget-line').locator('svg').first()).toBeVisible();
   await expect(page.getByTestId('widget-bar').locator('svg').first()).toBeVisible();
+  // Close the add-widget menu so the hero screenshot shows a clean grid.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
   await page.screenshot({ path: 'screenshots/02-three-widgets.png', fullPage: true });
 
   // Edit + save the text widget
