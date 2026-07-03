@@ -31,8 +31,10 @@ export function useCreateDashboard() {
 }
 
 /**
- * Thin wrappers over the generated hooks that keep the widget list query fresh
- * after every mutation — the generated hooks don't invalidate on their own.
+ * Thin wrappers over the generated hooks. Each mutation patches the cached widget
+ * list in place from its own response — never refetching the whole list. On a
+ * large dashboard, re-GETting all widgets after every rename/move/delete moves a
+ * lot of data for a one-row change, so we surgically update the one widget instead.
  */
 
 export function useWidgets(key: string) {
@@ -41,22 +43,37 @@ export function useWidgets(key: string) {
 
 export function useAddWidget(key: string) {
   const queryClient = useQueryClient();
+  const listKey = getListWidgetsQueryKey(key);
   return useCreateWidget({
-    mutation: { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListWidgetsQueryKey(key) }) },
+    mutation: {
+      // A new widget gets the next position, so it belongs at the end of the list.
+      onSuccess: (widget) =>
+        queryClient.setQueryData<Widget[]>(listKey, (prev) => (prev ? [...prev, widget] : [widget])),
+    },
   });
 }
 
 export function useEditWidget(key: string) {
   const queryClient = useQueryClient();
+  const listKey = getListWidgetsQueryKey(key);
   return useUpdateWidget({
-    mutation: { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListWidgetsQueryKey(key) }) },
+    mutation: {
+      onSuccess: (updated) =>
+        queryClient.setQueryData<Widget[]>(listKey, (prev) =>
+          prev?.map((w) => (w.id === updated.id ? updated : w)),
+        ),
+    },
   });
 }
 
 export function useRemoveWidget(key: string) {
   const queryClient = useQueryClient();
+  const listKey = getListWidgetsQueryKey(key);
   return useDeleteWidget({
-    mutation: { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListWidgetsQueryKey(key) }) },
+    mutation: {
+      onSuccess: (_data, variables) =>
+        queryClient.setQueryData<Widget[]>(listKey, (prev) => prev?.filter((w) => w.id !== variables.id)),
+    },
   });
 }
 
@@ -65,8 +82,8 @@ export function useReorder(key: string) {
   const listKey = getListWidgetsQueryKey(key);
   return useReorderWidgets({
     mutation: {
-      // Optimistically apply the new order; onSettled re-fetches to reconcile
-      // (which also reverts if the request fails).
+      // Apply the new order optimistically; the server just persists it, so there's
+      // nothing to refetch. Roll back to the snapshot if the request fails.
       onMutate: async (variables) => {
         await queryClient.cancelQueries({ queryKey: listKey });
         const previous = queryClient.getQueryData<Widget[]>(listKey);
@@ -77,8 +94,11 @@ export function useReorder(key: string) {
             .filter((w): w is Widget => Boolean(w));
           queryClient.setQueryData(listKey, next);
         }
+        return { previous };
       },
-      onSettled: () => queryClient.invalidateQueries({ queryKey: listKey }),
+      onError: (_err, _variables, context) => {
+        if (context?.previous) queryClient.setQueryData(listKey, context.previous);
+      },
     },
   });
 }
