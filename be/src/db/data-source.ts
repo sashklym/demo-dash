@@ -3,7 +3,9 @@ import { DataSource, type DataSourceOptions } from 'typeorm';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { Dashboard } from '../modules/dashboards/dashboard.entity';
+import { Widget } from '../modules/widgets/widget.entity';
 import { CreateDashboards1710000000000 } from './migrations/1710000000000-CreateDashboards';
+import { CreateWidgets1710000001000 } from './migrations/1710000001000-CreateWidgets';
 
 export interface CreateDataSourceOptions {
   /** SQLite file path, or ':memory:' for tests. */
@@ -24,8 +26,8 @@ export function createDataSource(opts: CreateDataSourceOptions): DataSource {
   const options: DataSourceOptions = {
     type: 'better-sqlite3',
     database: opts.database,
-    entities: [Dashboard],
-    migrations: [CreateDashboards1710000000000],
+    entities: [Dashboard, Widget],
+    migrations: [CreateDashboards1710000000000, CreateWidgets1710000001000],
     synchronize: opts.synchronize ?? false,
     logging: opts.logging ?? false,
   };
