@@ -7,6 +7,7 @@ import { registerCors } from './plugins/cors';
 import { registerSwagger } from './plugins/swagger';
 import { registerErrorHandler } from './core/error-handler';
 import { ErrorSchema } from './core/schemas';
+import { FAVICON_SVG, LANDING_HTML } from './core/branding';
 import type { AppInstance, Controller } from './core/http';
 import { TYPES } from './types';
 
@@ -29,6 +30,14 @@ export async function buildApp(container: Container): Promise<AppInstance> {
   app.addSchema(ErrorSchema);
 
   app.get('/health', { schema: { hide: true } }, async () => ({ status: 'ok' }));
+
+  app.get('/', { schema: { hide: true } }, async (_request, reply) => {
+    reply.type('text/html').send(LANDING_HTML);
+  });
+
+  app.get('/favicon.svg', { schema: { hide: true } }, async (_request, reply) => {
+    reply.header('cache-control', 'public, max-age=86400').type('image/svg+xml').send(FAVICON_SVG);
+  });
 
   // Register every controller bound in the container (see modules' *.controller.ts).
   if (container.isBound(TYPES.Controller)) {
