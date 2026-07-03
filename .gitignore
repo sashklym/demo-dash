@@ -27,7 +27,6 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
-e2e/screenshots/*.png
 
 # Logs
 *.log
