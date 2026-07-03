@@ -5,18 +5,19 @@ priority: high
 context: platform
 ---
 
-# CI/CD → Coolify
+# Coolify deploy (local-triggered)
 
-GitHub Actions gates on tests, then deploys two Coolify apps.
+Deploy two Coolify apps built from Dockerfiles. Coolify is on a private network, so deploys are triggered locally (no public CI).
 
 ## Phases
 
-- [x] `ci.yml` — backend, frontend, e2e jobs + contract-drift gates
 - [x] `be/Dockerfile` (Node, migrate-then-start) + `fe/Dockerfile` (nginx, SPA)
-- [x] Deploy job triggers Coolify webhooks on green `main`
-- [ ] Create the two Coolify apps (be + fe) and set `COOLIFY_*` secrets
-- [ ] DNS: `api.` / `dash.` → Coolify server IP; volume for the SQLite file
+- [x] Coolify project `youscan-demo` + `youscan-be` / `youscan-fe` apps (pull public repo)
+- [x] `scripts/deploy.sh` (`npm run deploy`) — trigger both deploys over Tailscale
+- [x] DNS: `api.` / `dash.youscan.sashklym.cc` → server IP
+- [ ] Set `youscan-fe` build arg `VITE_API_BASE_URL`, `youscan-be` `CORS_ORIGIN` + `/app/data` volume
+- [ ] First successful deploy of both apps
 
-## Acceptance
+## Notes
 
-A push to `main` runs the full suite and, when green, deploys both apps. See [`ops/deployment.md`](../../ops/deployment.md).
+GitHub Actions was removed — Coolify is only reachable on the private network, so public runners can't trigger it. Builds are pulled by Coolify and triggered from a local machine.

@@ -1,44 +1,46 @@
-# Deployment (Coolify)
+# Deployment (Coolify, local-triggered)
 
-Two Coolify applications built from Dockerfiles, deployed by GitHub Actions on a green push to `main`.
+Two Coolify applications built from Dockerfiles. Coolify runs on a **private (Tailscale) network**, so deploys are **triggered from a local machine** that can reach it — not from public CI. Coolify pulls the public GitHub repo (`sashklym/demo-dash`) and builds the Dockerfiles.
 
 ## Topology
 
-| App | Source | Serves | Public host (example) |
+| App | Source | Serves | Domain |
 |---|---|---|---|
 | `youscan-be` | `be/Dockerfile` | Fastify (Node) on :3000 | `api.youscan.sashklym.cc` |
 | `youscan-fe` | `fe/Dockerfile` | static build via nginx on :80 | `dash.youscan.sashklym.cc` |
 
-Coolify's built-in proxy routes by hostname, so both apps share one server IP.
+Coolify's proxy routes `api.` → backend and `dash.` → frontend by hostname.
 
-## DNS
-
-Point both subdomains (A records) at your **Coolify server's public IP** — the same IP for both:
+## DNS (Spaceship, zone `sashklym.cc`)
 
 ```
-api.youscan.sashklym.cc   A   <coolify-server-ip>
-dash.youscan.sashklym.cc  A   <coolify-server-ip>
+api.youscan   A   <server-ip>
+dash.youscan  A   <server-ip>
 ```
 
-A wildcard `*.youscan.sashklym.cc → <coolify-server-ip>` works too. Find the IP in Coolify → Servers → your server.
+Both point at the Coolify server's public IP; ports 80/443 must be open there.
 
-## Coolify setup (once)
+## Per-app config (Coolify)
 
-1. **Backend app** — new Application from this Git repo, Base Directory `be/`, Dockerfile build. Set the domain to `api.…`. Attach a **persistent volume** at `/app/data` (holds the SQLite file). No build args needed.
-2. **Frontend app** — new Application from this repo, Base Directory `fe/`, Dockerfile build. Set the domain to `dash.…`. Add build arg `VITE_API_BASE_URL=https://api.youscan.sashklym.cc`.
-3. Enable HTTPS (Let's Encrypt) on both domains.
-4. Copy each app's **deploy webhook URL** and create an **API token** (Keys & Tokens).
+**youscan-fe** — build arg (must be set before the build, it's baked into the bundle):
+```
+VITE_API_BASE_URL = https://api.youscan.sashklym.cc
+```
 
-## GitHub secrets
+**youscan-be** — runtime env + persistent storage:
+```
+CORS_ORIGIN = https://dash.youscan.sashklym.cc
+```
+Attach a **persistent volume** at `/app/data` so the SQLite file survives redeploys. The image runs `node dist/migrate.js && node dist/main.js` — migrations apply (own process) against the volume before the server starts.
 
-| Secret | Value |
-|---|---|
-| `COOLIFY_BE_WEBHOOK` | backend app deploy webhook URL |
-| `COOLIFY_FE_WEBHOOK` | frontend app deploy webhook URL |
-| `COOLIFY_TOKEN` | Coolify API token (Bearer) |
+## Deploying
 
-The `deploy` job in [`ci.yml`](../../.github/workflows/ci.yml) curls both webhooks after the backend, frontend, and e2e jobs pass on `main`.
+From a machine on the Coolify network (e.g. via Tailscale):
 
-## Migrations
+```bash
+export COOLIFY_URL=http://<coolify-host>:8000
+export COOLIFY_TOKEN=<write-scoped Coolify API token>   # never commit
+npm run deploy          # triggers both apps (scripts/deploy.sh)
+```
 
-The backend image runs `node dist/migrate.js && node dist/main.js` — migrations apply as their own process against the mounted volume before the server starts.
+Or click **Deploy** on each app in the Coolify UI. There is **no GitHub Actions** — the repo builds are pulled by Coolify and triggered locally.

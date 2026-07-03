@@ -62,7 +62,7 @@ The e2e run writes step-by-step screenshots to [`e2e/screenshots/`](e2e/screensh
 
 ## Deployment
 
-Two Coolify apps built from Dockerfiles (`be/Dockerfile` → Node, `fe/Dockerfile` → nginx). On a green push to `main`, GitHub Actions triggers each app's Coolify deploy webhook. See [`docs/ops/deployment.md`](docs/ops/deployment.md) for the full setup (DNS, secrets, volume).
+Two Coolify apps built from Dockerfiles (`be/Dockerfile` → Node, `fe/Dockerfile` → nginx), served at `api.` / `dash.youscan.sashklym.cc`. Coolify runs on a private (Tailscale) network and pulls the public repo, so deploys are triggered from a local machine (`npm run deploy`, see `scripts/deploy.sh`) rather than public CI. Full setup in [`docs/ops/deployment.md`](docs/ops/deployment.md).
 
 ## Docs
 
