@@ -36,8 +36,15 @@ test('golden path: create → add widgets → persist text → reload → delete
   await expect(page.getByTestId('widget-line').locator('svg').first()).toBeVisible();
   await page.screenshot({ path: 'screenshots/04-after-reload.png', fullPage: true });
 
-  // Delete the text widget → reload → it stays gone
+  // Expand a widget to full-screen, then dismiss it
+  await page.getByTestId('widget-line').getByRole('button', { name: 'Expand widget' }).click();
+  await expect(page.getByRole('dialog').locator('svg').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  // Delete the text widget (confirm in the dialog) → reload → it stays gone
   await page.getByTestId('widget-text').getByRole('button', { name: 'Delete widget' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByText('2 widgets')).toBeVisible();
   await page.reload();
   await expect(page.getByText('2 widgets')).toBeVisible();
