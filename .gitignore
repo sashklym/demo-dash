@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.sample
+
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.db
+be/data/
+!be/data/.gitkeep
+
+# Test / coverage artifacts
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+e2e/screenshots/*.png
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.idea/
+*.swp
+.vscode/*
+!.vscode/extensions.json
+
+# Vite
+fe/.vite/
