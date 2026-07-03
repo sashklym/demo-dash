@@ -1,16 +1,71 @@
 # YouScan Widget Dashboard
 
-A small full-stack widget dashboard: add **line-chart**, **bar-chart**, and **text** widgets to a 3-per-row grid.
-Positions, text edits, and chart data are all persisted and restored across reloads.
+A small but production-shaped full-stack app: a dashboard of **line-chart**, **bar-chart**, and **text** widgets in a responsive 3-per-row grid. Widgets are added, deleted, reordered, and their positions, chart data, and text edits all persist and restore across reloads.
 
-> Full README (architecture, run/test/deploy, contract pipeline) is filled in during the docs phase.
-> See [`docs/`](docs/) for the bounded-context documentation and [`docs/ROADMAP.md`](docs/ROADMAP.md) for the build roadmap.
+There are no logins. Each dashboard is an **anonymous, shareable key** — the app lives at `/d/:key`, remembers your key locally, and lets you re-open it on any device.
+
+![Three widgets](e2e/screenshots/02-three-widgets.png)
+
+## Architecture — a single source-of-truth contract
+
+The backend owns the API contract; the frontend generates its client from it. No HTTP is ever hand-written.
+
+```
+be/ (Fastify + TypeBox route schemas)
+  └─ npm run openapi:export ─▶ openapi.json ─┐
+                                             ├▶ fe/ orval → typed client + React Query hooks
+fe/ ── npm run api:generate ─────────────────┘        (src/lib/api/generated/, committed)
+```
+
+Both `openapi.json` and the generated client are committed, and CI fails if either drifts from the source — so the frontend and backend can never silently disagree.
+
+## Stack
+
+| | |
+|---|---|
+| **Backend** (`be/`) | Node 22 · Fastify · Inversify (DI) · TypeORM · SQLite · TypeBox · pino |
+| **Frontend** (`fe/`) | React 18 · Vite · TypeScript · Tailwind · shadcn/ui · Recharts · React Query |
+| **Contract** | `@fastify/swagger` (OpenAPI 3.1) → **orval** client generation |
+| **Tests** | Vitest (BE unit + integration, FE unit) · Playwright (whole-service e2e) |
+| **CI/CD** | GitHub Actions → Coolify (Docker) |
 
 ## Layout
 
-| Folder | What |
-|--------|------|
-| [`be/`](be/) | Fastify + Inversify + TypeORM + SQLite backend (owns the OpenAPI contract) |
-| [`fe/`](fe/) | React 18 + Vite + Tailwind + shadcn/ui + Recharts frontend (generated API client) |
-| [`e2e/`](e2e/) | Playwright whole-service end-to-end tests |
-| [`docs/`](docs/) | Bounded-context documentation + roadmap |
+```
+be/     Fastify backend — owns the OpenAPI contract, SQLite persistence
+fe/     React frontend — consumes the generated client
+e2e/    Playwright whole-service tests + screenshots
+docs/   Bounded-context documentation + ROADMAP
+```
+
+## Quickstart
+
+```bash
+# Backend  → http://localhost:3000  (Swagger UI at /docs)
+cd be && cp .env.sample .env && npm install && npm run dev
+
+# Frontend → http://localhost:5173
+cd fe && cp .env.sample .env && npm install && npm run dev
+```
+
+Open http://localhost:5173 — it creates a dashboard and redirects to `/d/:key`. Add widgets, edit the text widget, reload, and everything is restored. Copy the key (top bar) and open it in another browser to see the same dashboard.
+
+## Tests
+
+```bash
+cd be && npm run test:unit && npm run test:integration   # 14 + 18 tests
+cd fe && npm run test:unit                                # 16 tests
+cd e2e && npm install && npx playwright install chromium && npx playwright test
+```
+
+The e2e run writes step-by-step screenshots to [`e2e/screenshots/`](e2e/screenshots/).
+
+## Deployment
+
+Two Coolify apps built from Dockerfiles (`be/Dockerfile` → Node, `fe/Dockerfile` → nginx). On a green push to `main`, GitHub Actions triggers each app's Coolify deploy webhook. See [`docs/ops/deployment.md`](docs/ops/deployment.md) for the full setup (DNS, secrets, volume).
+
+## Docs
+
+- [`docs/README.md`](docs/README.md) — documentation by bounded context
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — what's shipped and what's next
+- [`CLAUDE.md`](CLAUDE.md) — guide for AI agents working in this repo
