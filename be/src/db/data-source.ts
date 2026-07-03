@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import { DataSource, type DataSourceOptions } from 'typeorm';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { Dashboard } from '../modules/dashboards/dashboard.entity';
+import { CreateDashboards1710000000000 } from './migrations/1710000000000-CreateDashboards';
 
 export interface CreateDataSourceOptions {
   /** SQLite file path, or ':memory:' for tests. */
@@ -22,9 +24,8 @@ export function createDataSource(opts: CreateDataSourceOptions): DataSource {
   const options: DataSourceOptions = {
     type: 'better-sqlite3',
     database: opts.database,
-    // Registered as feature modules are added:
-    entities: [],
-    migrations: [],
+    entities: [Dashboard],
+    migrations: [CreateDashboards1710000000000],
     synchronize: opts.synchronize ?? false,
     logging: opts.logging ?? false,
   };

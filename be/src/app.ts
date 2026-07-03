@@ -6,6 +6,7 @@ import { buildLoggerOptions } from './core/logger';
 import { registerCors } from './plugins/cors';
 import { registerSwagger } from './plugins/swagger';
 import { registerErrorHandler } from './core/error-handler';
+import { ErrorSchema } from './core/schemas';
 import type { AppInstance, Controller } from './core/http';
 import { TYPES } from './types';
 
@@ -23,6 +24,9 @@ export async function buildApp(container: Container): Promise<AppInstance> {
   await registerCors(app);
   await registerSwagger(app);
   registerErrorHandler(app);
+
+  // Shared schemas referenced across modules (error responses).
+  app.addSchema(ErrorSchema);
 
   app.get('/health', { schema: { hide: true } }, async () => ({ status: 'ok' }));
 

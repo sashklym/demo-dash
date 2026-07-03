@@ -1,10 +1,12 @@
 import { Container } from 'inversify';
 import type { DataSource } from 'typeorm';
 import { TYPES } from './types';
+import type { Controller } from './core/http';
+import { DashboardService } from './modules/dashboards/dashboard.service';
+import { DashboardController } from './modules/dashboards/dashboard.controller';
 
 /**
- * Builds the Inversify container for a given DataSource. Feature services and
- * controllers are registered here as modules are added — controllers all bind to
+ * Builds the Inversify container for a given DataSource. Every controller binds to
  * TYPES.Controller so `buildApp` can resolve and register them uniformly.
  */
 export function buildContainer(dataSource: DataSource): Container {
@@ -12,7 +14,9 @@ export function buildContainer(dataSource: DataSource): Container {
 
   container.bind<DataSource>(TYPES.DataSource).toConstantValue(dataSource);
 
-  // Feature bindings are appended below as modules are added (phases 2–3).
+  // Dashboards
+  container.bind<DashboardService>(TYPES.DashboardService).to(DashboardService);
+  container.bind<Controller>(TYPES.Controller).to(DashboardController);
 
   return container;
 }
