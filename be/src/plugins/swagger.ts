@@ -10,7 +10,7 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 export async function registerSwagger(app: FastifyInstance): Promise<void> {
   await app.register(fastifySwagger, {
     openapi: {
-      openapi: '3.0.3',
+      openapi: '3.1.0',
       info: {
         title: 'YouScan Dashboard API',
         description:
