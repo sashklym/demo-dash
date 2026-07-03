@@ -48,17 +48,27 @@ describe('widgets', () => {
     expect((await addWidget(key, { type: 'text' })).text).toBe('');
   });
 
-  it('serves deterministic chart data (restored across calls)', async () => {
+  it('serves deterministic sentiment data (restored across calls)', async () => {
     const key = await newDashboard();
     const w = await addWidget(key, { type: 'line' });
     const d1 = (
-      await ctx.app.inject({ method: 'GET', url: `/api/dashboards/${key}/widgets/${w.id}/data?points=8` })
+      await ctx.app.inject({ method: 'GET', url: `/api/dashboards/${key}/widgets/${w.id}/data?period=week` })
     ).json();
     const d2 = (
-      await ctx.app.inject({ method: 'GET', url: `/api/dashboards/${key}/widgets/${w.id}/data?points=8` })
+      await ctx.app.inject({ method: 'GET', url: `/api/dashboards/${key}/widgets/${w.id}/data?period=week` })
     ).json();
-    expect(d1.series).toHaveLength(8);
+    expect(d1.period).toBe('week');
+    expect(d1.points).toHaveLength(7);
+    expect(d1.points[0]).toHaveProperty('positive');
+    expect(d1.points[0]).toHaveProperty('negative');
     expect(d1).toEqual(d2);
+  });
+
+  it('defaults chart data to the widget’s saved period', async () => {
+    const key = await newDashboard();
+    const w = await addWidget(key, { type: 'line' });
+    const d = (await ctx.app.inject({ method: 'GET', url: `/api/dashboards/${key}/widgets/${w.id}/data` })).json();
+    expect(d.period).toBe('month');
   });
 
   it('regenerate changes the series', async () => {

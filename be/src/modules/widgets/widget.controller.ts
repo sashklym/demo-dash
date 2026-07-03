@@ -10,6 +10,7 @@ import {
   ChartDataSchema,
   CreateWidgetBody,
   DashboardScopeParams,
+  PeriodSchema,
   ReorderBody,
   UpdateWidgetBody,
   WidgetItemParams,
@@ -26,6 +27,7 @@ function toResponse(widget: Widget) {
     position: widget.position,
     title: widget.title,
     text: widget.text,
+    period: widget.period,
   };
 }
 
@@ -35,6 +37,7 @@ export class WidgetController implements Controller {
 
   register(app: AppInstance): void {
     app.addSchema(WidgetTypeSchema);
+    app.addSchema(PeriodSchema);
     app.addSchema(WidgetSchema);
     app.addSchema(CreateWidgetBody);
     app.addSchema(UpdateWidgetBody);
@@ -146,9 +149,7 @@ export class WidgetController implements Controller {
         },
       },
       async (request) => {
-        const points = request.query.points ?? 12;
-        const series = await this.service.chartData(request.params.key, request.params.id, points);
-        return { series };
+        return this.service.chartData(request.params.key, request.params.id, request.query.period);
       },
     );
 

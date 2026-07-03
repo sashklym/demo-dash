@@ -36,6 +36,17 @@ test('golden path: create → add widgets → persist text → reload → delete
   await expect(page.getByTestId('widget-line').locator('svg').first()).toBeVisible();
   await page.screenshot({ path: 'screenshots/04-after-reload.png', fullPage: true });
 
+  // Give a widget a custom name; the type badge stays and the name survives reload
+  const line = page.getByTestId('widget-line');
+  await expect(line.getByText('Line', { exact: true })).toBeVisible();
+  await line.getByRole('button', { name: 'Line chart' }).click();
+  await line.getByLabel('Widget name').fill('Brand buzz');
+  await line.getByLabel('Widget name').press('Enter');
+  await expect(line.getByRole('button', { name: 'Brand buzz' })).toBeVisible();
+  await expect(line.getByText('Line', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('widget-line').getByRole('button', { name: 'Brand buzz' })).toBeVisible();
+
   // Expand a widget to full-screen, then dismiss it
   await page.getByTestId('widget-line').getByRole('button', { name: 'Expand widget' }).click();
   await expect(page.getByRole('dialog').locator('svg').first()).toBeVisible();
@@ -102,6 +113,46 @@ test('reorders widgets by dragging and persists the new order', async ({ page })
   await page.reload();
   await expect(page.getByText('3 widgets')).toBeVisible();
   await expect(page.locator('[data-testid^="widget-"]').first()).toHaveAttribute('data-testid', 'widget-text');
+});
+
+test('scrolls a newly added widget into view', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/d\/.+/);
+
+  // Fill the dashboard so the grid overflows the viewport.
+  for (let i = 0; i < 9; i++) {
+    await page.getByRole('button', { name: 'Add widget' }).click();
+    await page.getByRole('menuitem', { name: 'Text', exact: true }).click();
+  }
+  await expect(page.getByText('9 widgets')).toBeVisible();
+
+  // The next widget (the only bar chart) should be scrolled into view on add.
+  await page.getByRole('button', { name: 'Add widget' }).click();
+  await page.getByRole('menuitem', { name: 'Bar chart', exact: true }).click();
+  await expect(page.getByText('10 widgets')).toBeVisible();
+  await expect(page.getByTestId('widget-bar')).toBeInViewport();
+});
+
+test('charts show the sentiment series and persist the selected period', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/d\/.+/);
+  await page.getByRole('button', { name: 'Add widget' }).click();
+  await page.getByRole('menuitem', { name: 'Line chart', exact: true }).click();
+
+  const chart = page.getByTestId('widget-line');
+  // YouScan sentiment breakdown legend
+  await expect(chart.getByText('Positive')).toBeVisible();
+  await expect(chart.getByText('Neutral')).toBeVisible();
+  await expect(chart.getByText('Negative')).toBeVisible();
+
+  // Default period is Month; switching to Year persists across a reload.
+  await expect(chart.getByRole('button', { name: 'Month', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await chart.getByRole('button', { name: 'Year', exact: true }).click();
+  await expect(chart.getByRole('button', { name: 'Year', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.reload();
+  await expect(
+    page.getByTestId('widget-line').getByRole('button', { name: 'Year', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('shows a not-found state for an unknown key', async ({ page }) => {

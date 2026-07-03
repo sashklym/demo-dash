@@ -4,7 +4,7 @@ import { TYPES } from '../../types';
 import { BadRequestError, NotFoundError } from '../../core/errors';
 import { mulberry32, randomSeed } from '../../core/random';
 import { DashboardService } from '../dashboards/dashboard.service';
-import { Widget, type WidgetType } from './widget.entity';
+import { Widget, type Period, type WidgetType } from './widget.entity';
 
 export interface CreateWidgetInput {
   type: WidgetType;
@@ -16,24 +16,54 @@ export interface UpdateWidgetInput {
   title?: string;
   text?: string | null;
   position?: number;
+  period?: Period;
 }
 
-export interface ChartPoint {
+/** A bucket of YouScan-style sentiment counts. */
+export interface SentimentPoint {
   label: string;
-  value: number;
+  positive: number;
+  neutral: number;
+  negative: number;
+}
+
+export interface ChartData {
+  period: Period;
+  points: SentimentPoint[];
 }
 
 function defaultTitle(type: WidgetType): string {
   return type === 'line' ? 'Line chart' : type === 'bar' ? 'Bar chart' : 'Text';
 }
 
-/** Deterministic series from a seed — identical across reloads for the same widget. */
-function seriesFromSeed(seed: number, points: number): ChartPoint[] {
-  const next = mulberry32(seed);
-  return Array.from({ length: points }, (_, i) => ({
-    label: `P${i + 1}`,
-    value: Math.round(next() * 100),
-  }));
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** Bucket count, x-axis labels, volume scale, and a distinct seed salt per period. */
+const PERIODS: Record<Period, { count: number; label: (i: number) => string; scale: number; salt: number }> = {
+  day: { count: 8, label: (i) => `${String(i * 3).padStart(2, '0')}:00`, scale: 0.5, salt: 17 },
+  week: { count: 7, label: (i) => WEEKDAYS[i] ?? '', scale: 1, salt: 31 },
+  month: { count: 4, label: (i) => `W${i + 1}`, scale: 4, salt: 53 },
+  year: { count: 12, label: (i) => MONTHS[i] ?? '', scale: 12, salt: 97 },
+};
+
+/**
+ * Deterministic YouScan-flavoured sentiment series from a seed + period. Neutral
+ * mentions dominate, positive tracks a gentle wave, negative stays low with the
+ * occasional PR-crisis spike. Identical across reloads; distinct per period.
+ */
+function sentimentSeries(seed: number, period: Period): SentimentPoint[] {
+  const cfg = PERIODS[period];
+  const next = mulberry32(seed + cfg.salt);
+  return Array.from({ length: cfg.count }, (_, i) => {
+    const wave = 0.55 + 0.45 * Math.sin((i / cfg.count) * Math.PI * 2 + (seed % 7));
+    const base = (35 + wave * 55 + next() * 25) * cfg.scale;
+    const positive = Math.round(base * (0.3 + next() * 0.15));
+    const neutral = Math.round(base * (0.45 + next() * 0.15));
+    const spike = next() < 0.15 ? next() * 30 * cfg.scale : 0;
+    const negative = Math.round(base * (0.08 + next() * 0.08) + spike);
+    return { label: cfg.label(i), positive, neutral, negative };
+  });
 }
 
 @injectable()
@@ -75,6 +105,7 @@ export class WidgetService {
     if (input.title !== undefined) widget.title = input.title;
     if (input.text !== undefined) widget.text = input.text;
     if (input.position !== undefined) widget.position = input.position;
+    if (input.period !== undefined) widget.period = input.period;
     return this.repo.save(widget);
   }
 
@@ -102,12 +133,13 @@ export class WidgetService {
     return this.list(key);
   }
 
-  async chartData(key: string, id: string, points: number): Promise<ChartPoint[]> {
+  async chartData(key: string, id: string, period?: Period): Promise<ChartData> {
     const widget = await this.requireWidget(key, id);
     if (widget.type === 'text') {
       throw new BadRequestError('Text widgets have no chart data');
     }
-    return seriesFromSeed(widget.seed, points);
+    const resolved = period ?? widget.period;
+    return { period: resolved, points: sentimentSeries(widget.seed, resolved) };
   }
 
   async regenerate(key: string, id: string): Promise<Widget> {

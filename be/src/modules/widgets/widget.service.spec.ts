@@ -38,19 +38,34 @@ describe('WidgetService', () => {
     expect(w.text).toBe('hi');
   });
 
-  it('serves deterministic chart data of the requested length', async () => {
+  it('serves deterministic sentiment data for the widget’s period', async () => {
     const { service, repo } = makeService();
-    repo.findOne.mockResolvedValue({ id: 'w', dashboard_id: 'dash-1', type: 'line', seed: 999 });
-    const a = await service.chartData('k', 'w', 10);
-    const b = await service.chartData('k', 'w', 10);
+    repo.findOne.mockResolvedValue({ id: 'w', dashboard_id: 'dash-1', type: 'line', seed: 999, period: 'week' });
+    const a = await service.chartData('k', 'w');
+    const b = await service.chartData('k', 'w');
     expect(a).toEqual(b);
-    expect(a).toHaveLength(10);
+    expect(a.period).toBe('week');
+    expect(a.points).toHaveLength(7);
+    expect(a.points[0]).toMatchObject({
+      label: expect.any(String),
+      positive: expect.any(Number),
+      neutral: expect.any(Number),
+      negative: expect.any(Number),
+    });
+  });
+
+  it('honours an explicit period override and changes the bucketing', async () => {
+    const { service, repo } = makeService();
+    repo.findOne.mockResolvedValue({ id: 'w', dashboard_id: 'dash-1', type: 'line', seed: 999, period: 'week' });
+    const year = await service.chartData('k', 'w', 'year');
+    expect(year.period).toBe('year');
+    expect(year.points).toHaveLength(12);
   });
 
   it('rejects chart data for text widgets with BadRequestError', async () => {
     const { service, repo } = makeService();
-    repo.findOne.mockResolvedValue({ id: 'w', dashboard_id: 'dash-1', type: 'text', seed: 1 });
-    await expect(service.chartData('k', 'w', 5)).rejects.toBeInstanceOf(BadRequestError);
+    repo.findOne.mockResolvedValue({ id: 'w', dashboard_id: 'dash-1', type: 'text', seed: 1, period: 'month' });
+    await expect(service.chartData('k', 'w')).rejects.toBeInstanceOf(BadRequestError);
   });
 
   it('throws NotFoundError when the widget is missing', async () => {
