@@ -1,0 +1,9 @@
+{
+  "name": "youscan-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "YouScan widget dashboard — Fastify + SQLite backend, React + Vite frontend",
+  "scripts": {
+    "docs:index": "node scripts/update-docs.mjs"
+  }
+}
