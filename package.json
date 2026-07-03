@@ -5,6 +5,7 @@
   "description": "YouScan widget dashboard — Fastify + SQLite backend, React + Vite frontend",
   "scripts": {
     "docs:index": "node scripts/update-docs.mjs",
-    "deploy": "bash scripts/deploy.sh"
+    "deploy": "bash scripts/deploy.sh",
+    "load:widgets": "node scripts/load-widgets.mjs"
   }
 }
