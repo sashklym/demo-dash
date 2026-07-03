@@ -19,9 +19,9 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, LayoutGrid } from 'lucide-react';
 import { AddWidgetMenu } from './AddWidgetMenu';
 import { WidgetCard } from './WidgetCard';
+import { WidgetGridSkeleton } from './WidgetGridSkeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useReorder, useWidgets } from '@/hooks/use-widgets';
 import type { Widget } from '@/lib/api/generated/model';
 
@@ -60,13 +60,7 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
   );
 
   if (widgets.isPending) {
-    return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-64 w-full rounded-xl" />
-        ))}
-      </div>
-    );
+    return <WidgetGridSkeleton />;
   }
 
   if (widgets.isError) {

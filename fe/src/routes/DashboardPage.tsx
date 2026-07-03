@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 import { CenteredMessage } from '@/components/CenteredMessage';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { WidgetGrid } from '@/components/WidgetGrid';
+import { WidgetGridSkeleton } from '@/components/WidgetGridSkeleton';
 import { Button } from '@/components/ui/button';
 import { useCreateDashboard, useGetDashboard } from '@/lib/api/generated/api';
 import { setStoredKey } from '@/lib/dashboard-key';
@@ -20,16 +20,7 @@ export function DashboardPage() {
     if (dashboard.isSuccess) setStoredKey(key);
   }, [dashboard.isSuccess, key]);
 
-  if (dashboard.isLoading) {
-    return (
-      <CenteredMessage>
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        <p className="text-muted-foreground">Loading dashboard…</p>
-      </CenteredMessage>
-    );
-  }
-
-  if (dashboard.isError || !dashboard.data) {
+  if (dashboard.isError) {
     return (
       <CenteredMessage>
         <div className="space-y-1">
@@ -58,11 +49,13 @@ export function DashboardPage() {
     );
   }
 
+  // Header shows immediately; the grid area holds one steady skeleton while the
+  // dashboard validates and widgets load, then swaps to the real grid.
   return (
     <div className="min-h-screen bg-muted/30">
       <DashboardHeader dashboardKey={key} />
       <main className="mx-auto max-w-6xl px-4 py-6">
-        <WidgetGrid dashboardKey={key} />
+        {dashboard.isSuccess ? <WidgetGrid dashboardKey={key} /> : <WidgetGridSkeleton />}
       </main>
     </div>
   );
