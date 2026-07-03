@@ -1,5 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider } from 'react-router-dom';
+import { router } from '@/router';
+import { queryClient } from '@/lib/query-client';
+import { Toaster } from '@/components/ui/sonner';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -7,8 +12,9 @@ if (!rootElement) throw new Error('Root element #root not found');
 
 createRoot(rootElement).render(
   <StrictMode>
-    <main className="grid min-h-screen place-items-center p-8">
-      <p className="text-muted-foreground">YouScan Dashboard — starting…</p>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+      <Toaster richColors position="top-center" />
+    </QueryClientProvider>
   </StrictMode>,
 );
