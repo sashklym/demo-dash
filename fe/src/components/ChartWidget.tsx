@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -12,21 +14,61 @@ import {
 } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { useGetWidgetData } from '@/lib/api/generated/api';
-import { useRegenerate } from '@/hooks/use-widgets';
+import { Period } from '@/lib/api/generated/model';
+import { useEditWidget, useRegenerate } from '@/hooks/use-widgets';
 import type { Widget } from '@/lib/api/generated/model';
 
-const STROKE = 'hsl(var(--chart-1))';
 const GRID = 'hsl(var(--border))';
 
+// YouScan sentiment breakdown — neutral dominates, negative is the alarm signal.
+const SERIES = [
+  { key: 'positive', label: 'Positive', color: 'hsl(142 71% 42%)' },
+  { key: 'neutral', label: 'Neutral', color: 'hsl(215 16% 55%)' },
+  { key: 'negative', label: 'Negative', color: 'hsl(0 74% 55%)' },
+] as const;
+
+const PERIODS: { value: Period; label: string }[] = [
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+  { value: 'year', label: 'Year' },
+];
+
 export function ChartWidget({ dashboardKey, widget }: { dashboardKey: string; widget: Widget }) {
-  const data = useGetWidgetData(dashboardKey, widget.id, { points: 12 });
+  const [period, setPeriod] = useState<Period>(widget.period);
+  const data = useGetWidgetData(dashboardKey, widget.id, { period });
   const regenerate = useRegenerate(dashboardKey);
-  const series = data.data?.series ?? [];
+  const edit = useEditWidget(dashboardKey);
+  const points = data.data?.points ?? [];
   const isBar = widget.type === 'bar';
+
+  function changePeriod(next: Period) {
+    if (next === period) return;
+    setPeriod(next); // update the view immediately…
+    edit.mutate({ key: dashboardKey, id: widget.id, data: { period: next } }); // …and persist for reload
+  }
 
   return (
     <div className="flex h-full flex-col gap-2">
+      <div className="flex items-center gap-0.5" role="group" aria-label="Chart period">
+        {PERIODS.map((p) => (
+          <button
+            key={p.value}
+            type="button"
+            aria-pressed={p.value === period}
+            className={cn(
+              'rounded px-2 py-0.5 text-xs font-medium transition-colors',
+              p.value === period ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent',
+            )}
+            onClick={() => changePeriod(p.value)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       <div className="min-h-0 flex-1" data-testid="chart-body">
         {data.isPending ? (
           <Skeleton className="h-full w-full" />
@@ -40,25 +82,40 @@ export function ChartWidget({ dashboardKey, widget }: { dashboardKey: string; wi
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             {isBar ? (
-              <BarChart data={series} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
+              <BarChart data={points} margin={{ top: 4, right: 4, bottom: 0, left: -8 }}>
                 <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis fontSize={11} tickLine={false} axisLine={false} width={40} />
+                <YAxis fontSize={11} tickLine={false} axisLine={false} width={44} />
                 <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} />
-                <Bar dataKey="value" fill={STROKE} radius={[4, 4, 0, 0]} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                {SERIES.map((s) => (
+                  <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} radius={[2, 2, 0, 0]} />
+                ))}
               </BarChart>
             ) : (
-              <LineChart data={series} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
+              <LineChart data={points} margin={{ top: 4, right: 8, bottom: 0, left: -8 }}>
                 <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis fontSize={11} tickLine={false} axisLine={false} width={40} />
+                <YAxis fontSize={11} tickLine={false} axisLine={false} width={44} />
                 <Tooltip />
-                <Line type="monotone" dataKey="value" stroke={STROKE} strokeWidth={2} dot={false} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                {SERIES.map((s) => (
+                  <Line
+                    key={s.key}
+                    type="monotone"
+                    dataKey={s.key}
+                    name={s.label}
+                    stroke={s.color}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ))}
               </LineChart>
             )}
           </ResponsiveContainer>
         )}
       </div>
+
       <div className="flex justify-end">
         <Button
           size="sm"

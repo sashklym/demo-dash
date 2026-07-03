@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { UpdateWidgetBodyText } from './updateWidgetBodyText';
+import type { Period } from './period';
 
 export interface UpdateWidgetBody {
   /**
@@ -16,4 +17,5 @@ export interface UpdateWidgetBody {
   text?: UpdateWidgetBodyText;
   /** @minimum 0 */
   position?: number;
+  period?: Period;
 }

@@ -7,12 +7,13 @@
  */
 
 export * from './chartData';
-export * from './chartDataSeriesItem';
+export * from './chartDataPointsItem';
 export * from './createDashboardBody';
 export * from './createWidgetBody';
 export * from './dashboard';
 export * from './error';
 export * from './getWidgetDataParams';
+export * from './period';
 export * from './reorderBody';
 export * from './updateWidgetBody';
 export * from './updateWidgetBodyText';

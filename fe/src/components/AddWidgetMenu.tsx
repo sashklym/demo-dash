@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAddWidget } from '@/hooks/use-widgets';
-import type { WidgetType } from '@/lib/api/generated/model';
+import type { Widget, WidgetType } from '@/lib/api/generated/model';
 
 const OPTIONS: Array<{ type: WidgetType; label: string; Icon: typeof LineChart }> = [
   { type: 'line', label: 'Line chart', Icon: LineChart },
@@ -18,13 +18,22 @@ const OPTIONS: Array<{ type: WidgetType; label: string; Icon: typeof LineChart }
   { type: 'text', label: 'Text', Icon: Type },
 ];
 
-export function AddWidgetMenu({ dashboardKey }: { dashboardKey: string }) {
+export function AddWidgetMenu({
+  dashboardKey,
+  onCreated,
+}: {
+  dashboardKey: string;
+  onCreated?: (widget: Widget) => void;
+}) {
   const add = useAddWidget(dashboardKey);
 
   function create(type: WidgetType) {
     add.mutate(
       { key: dashboardKey, data: { type } },
-      { onError: () => toast.error('Could not add widget') },
+      {
+        onSuccess: (widget) => onCreated?.(widget),
+        onError: () => toast.error('Could not add widget'),
+      },
     );
   }
 

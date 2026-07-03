@@ -5,8 +5,10 @@
  * Anonymous widget dashboards — create a dashboard, add line/bar/text widgets, restore later by key. The frontend client is generated from this spec.
  * OpenAPI spec version: 1.0.0
  */
-import type { Period } from './period';
 
-export type GetWidgetDataParams = {
-period?: Period;
+export type ChartDataPointsItem = {
+  label: string;
+  positive: number;
+  neutral: number;
+  negative: number;
 };

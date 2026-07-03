@@ -7,7 +7,7 @@ vi.mock('react-router-dom', async (orig) => ({
   ...(await orig<typeof import('react-router-dom')>()),
   useNavigate: () => navigate,
 }));
-vi.mock('@/lib/api/generated/api', () => ({
+vi.mock('@/hooks/use-widgets', () => ({
   useCreateDashboard: () => ({ mutate, isPending: false }),
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));

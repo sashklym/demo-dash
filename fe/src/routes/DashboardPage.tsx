@@ -5,7 +5,8 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { WidgetGrid } from '@/components/WidgetGrid';
 import { WidgetGridSkeleton } from '@/components/WidgetGridSkeleton';
 import { Button } from '@/components/ui/button';
-import { useCreateDashboard, useGetDashboard } from '@/lib/api/generated/api';
+import { useGetDashboard } from '@/lib/api/generated/api';
+import { useCreateDashboard } from '@/hooks/use-widgets';
 import { setStoredKey } from '@/lib/dashboard-key';
 
 /** "/d/:key" — validates the key, then renders the header + widget grid. */

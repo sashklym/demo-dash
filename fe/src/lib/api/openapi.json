@@ -63,6 +63,16 @@
         ],
         "description": "line | bar | text"
       },
+      "Period": {
+        "type": "string",
+        "enum": [
+          "day",
+          "week",
+          "month",
+          "year"
+        ],
+        "description": "day | week | month | year"
+      },
       "Widget": {
         "type": "object",
         "required": [
@@ -70,7 +80,8 @@
           "type",
           "position",
           "title",
-          "text"
+          "text",
+          "period"
         ],
         "properties": {
           "id": {
@@ -96,6 +107,9 @@
                 "type": "null"
               }
             ]
+          },
+          "period": {
+            "$ref": "#/components/schemas/Period"
           }
         }
       },
@@ -142,6 +156,9 @@
           "position": {
             "minimum": 0,
             "type": "integer"
+          },
+          "period": {
+            "$ref": "#/components/schemas/Period"
           }
         }
       },
@@ -164,23 +181,35 @@
       "ChartData": {
         "type": "object",
         "required": [
-          "series"
+          "period",
+          "points"
         ],
         "properties": {
-          "series": {
+          "period": {
+            "$ref": "#/components/schemas/Period"
+          },
+          "points": {
             "type": "array",
             "items": {
               "type": "object",
               "required": [
                 "label",
-                "value"
+                "positive",
+                "neutral",
+                "negative"
               ],
               "properties": {
                 "label": {
                   "type": "string"
                 },
-                "value": {
-                  "type": "number"
+                "positive": {
+                  "type": "integer"
+                },
+                "neutral": {
+                  "type": "integer"
+                },
+                "negative": {
+                  "type": "integer"
                 }
               }
             }
@@ -536,15 +565,11 @@
         "parameters": [
           {
             "schema": {
-              "minimum": 2,
-              "maximum": 100,
-              "default": 12,
-              "type": "integer"
+              "$ref": "#/components/schemas/Period"
             },
             "in": "query",
-            "name": "points",
-            "required": false,
-            "description": "Number of data points"
+            "name": "period",
+            "required": false
           },
           {
             "schema": {

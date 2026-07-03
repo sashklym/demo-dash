@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CenteredMessage } from '@/components/CenteredMessage';
 import { Button } from '@/components/ui/button';
-import { useCreateDashboard } from '@/lib/api/generated/api';
+import { useCreateDashboard } from '@/hooks/use-widgets';
 import { getStoredKey, setStoredKey } from '@/lib/dashboard-key';
 
 /**

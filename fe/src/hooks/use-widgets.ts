@@ -1,7 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  getGetDashboardQueryKey,
   getGetWidgetDataQueryKey,
   getListWidgetsQueryKey,
+  useCreateDashboard as useCreateDashboardGenerated,
   useCreateWidget,
   useDeleteWidget,
   useListWidgets,
@@ -10,6 +12,23 @@ import {
   useUpdateWidget,
 } from '@/lib/api/generated/api';
 import type { Widget } from '@/lib/api/generated/model';
+
+/**
+ * A freshly created dashboard is always empty. Seed the dashboard + widget-list
+ * caches from the create response so it renders its empty state immediately —
+ * no loading skeleton flashing phantom widget cards.
+ */
+export function useCreateDashboard() {
+  const queryClient = useQueryClient();
+  return useCreateDashboardGenerated({
+    mutation: {
+      onSuccess: (dashboard) => {
+        queryClient.setQueryData(getGetDashboardQueryKey(dashboard.key), dashboard);
+        queryClient.setQueryData<Widget[]>(getListWidgetsQueryKey(dashboard.key), []);
+      },
+    },
+  });
+}
 
 /**
  * Thin wrappers over the generated hooks that keep the widget list query fresh

@@ -6,7 +6,16 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type ChartDataSeriesItem = {
-  label: string;
-  value: number;
-};
+/**
+ * day | week | month | year
+ */
+export type Period = typeof Period[keyof typeof Period];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const Period = {
+  day: 'day',
+  week: 'week',
+  month: 'month',
+  year: 'year',
+} as const;

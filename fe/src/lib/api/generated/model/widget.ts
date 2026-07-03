@@ -7,6 +7,7 @@
  */
 import type { WidgetType } from './widgetType';
 import type { WidgetText } from './widgetText';
+import type { Period } from './period';
 
 export interface Widget {
   id: string;
@@ -15,4 +16,5 @@ export interface Widget {
   title: string;
   /** Body of a text widget; null for charts */
   text: WidgetText;
+  period: Period;
 }

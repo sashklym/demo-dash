@@ -4,7 +4,7 @@ import { Copy, Link2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useCreateDashboard } from '@/lib/api/generated/api';
+import { useCreateDashboard } from '@/hooks/use-widgets';
 import { setStoredKey } from '@/lib/dashboard-key';
 
 /**
@@ -85,7 +85,7 @@ export function DashboardHeader({ dashboardKey }: { dashboardKey: string }) {
           </Button>
         </form>
 
-        <Button onClick={createNew} disabled={createDashboard.isPending}>
+        <Button variant="secondary" onClick={createNew} disabled={createDashboard.isPending}>
           <Plus /> New dashboard
         </Button>
       </div>
