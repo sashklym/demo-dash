@@ -100,6 +100,16 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Trigger backend deploy
-        run: curl --fail --silent --show-error -X POST "${{ secrets.COOLIFY_BE_WEBHOOK }}" -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
+        env:
+          WEBHOOK: ${{ secrets.COOLIFY_BE_WEBHOOK }}
+          TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "COOLIFY_BE_WEBHOOK not set — skipping deploy."; exit 0; fi
+          curl --fail --silent --show-error -X POST "$WEBHOOK" -H "Authorization: Bearer $TOKEN"
       - name: Trigger frontend deploy
-        run: curl --fail --silent --show-error -X POST "${{ secrets.COOLIFY_FE_WEBHOOK }}" -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
+        env:
+          WEBHOOK: ${{ secrets.COOLIFY_FE_WEBHOOK }}
+          TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "COOLIFY_FE_WEBHOOK not set — skipping deploy."; exit 0; fi
+          curl --fail --silent --show-error -X POST "$WEBHOOK" -H "Authorization: Bearer $TOKEN"
