@@ -26,16 +26,15 @@ export function BootstrapRoute() {
       return;
     }
 
-    createDashboard.mutate(
-      { data: {} },
-      {
-        onSuccess: (dashboard) => {
-          setStoredKey(dashboard.key);
-          navigate(`/d/${dashboard.key}`, { replace: true });
-        },
-        onError: () => toast.error('Could not reach the API to create a dashboard.'),
-      },
-    );
+    // mutateAsync (not mutate + per-call callbacks): the promise resolves regardless
+    // of the component's mount state, so navigation survives StrictMode's dev remount.
+    createDashboard
+      .mutateAsync({ data: {} })
+      .then((dashboard) => {
+        setStoredKey(dashboard.key);
+        navigate(`/d/${dashboard.key}`, { replace: true });
+      })
+      .catch(() => toast.error('Could not reach the API to create a dashboard.'));
   }, [createDashboard, navigate]);
 
   if (createDashboard.isError) {
