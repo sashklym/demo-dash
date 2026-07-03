@@ -2,7 +2,7 @@
 
 **Live demo:** [dash.youscan.sashklym.cc](https://dash.youscan.sashklym.cc) · **API + Swagger:** [api.youscan.sashklym.cc/docs](https://api.youscan.sashklym.cc/docs)
 
-A small but production-shaped full-stack app: a dashboard of **line-chart**, **bar-chart**, and **text** widgets in a responsive 3-per-row grid. Widgets are added, deleted, reordered, and their positions, chart data, and text edits all persist and restore across reloads.
+A small but production-shaped full-stack app: a dashboard of **line-chart**, **bar-chart**, and **text** widgets in a responsive grid. Charts can be viewed by **day, week, month, or year**. Widgets are added, deleted, and reordered — by drag-and-drop, or by per-widget **move actions** (start / up / down / end) — and their positions, chart data, and text edits all persist and restore across reloads. Big dashboards stay fast: past ~60 widgets the grid **virtualizes**, rendering (and fetching data for) only the widgets on screen.
 
 There are no logins. Each dashboard is an **anonymous, shareable key** — the app lives at `/d/:key`, remembers your key locally, and lets you re-open it on any device.
 
@@ -55,12 +55,22 @@ Open http://localhost:5173 — it creates a dashboard and redirects to `/d/:key`
 ## Tests
 
 ```bash
-cd be && npm run test:unit && npm run test:integration   # 14 + 18 tests
-cd fe && npm run test:unit                                # 16 tests
+cd be && npm run test:unit && npm run test:integration   # 15 + 19 tests
+cd fe && npm run test:unit                                # 22 tests
 cd e2e && npm install && npx playwright install chromium && npx playwright test
 ```
 
 The e2e run writes step-by-step screenshots to [`e2e/screenshots/`](e2e/screenshots/).
+
+## Load testing
+
+Bulk-create widgets against any environment to see how the grid (and API) hold up at scale:
+
+```bash
+BASE_URL=https://api.youscan.sashklym.cc COUNT=1000 CONCURRENCY=50 npm run load:widgets
+```
+
+Spins up a fresh dashboard (or pass `KEY=` to target an existing one) and prints a `/d/:key` link to open. See [`scripts/load-widgets.mjs`](scripts/load-widgets.mjs) for all options.
 
 ## Deployment
 
