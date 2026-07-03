@@ -1,5 +1,7 @@
 # YouScan Widget Dashboard
 
+**Live demo:** [dash.youscan.sashklym.cc](https://dash.youscan.sashklym.cc) · **API + Swagger:** [api.youscan.sashklym.cc/docs](https://api.youscan.sashklym.cc/docs)
+
 A small but production-shaped full-stack app: a dashboard of **line-chart**, **bar-chart**, and **text** widgets in a responsive 3-per-row grid. Widgets are added, deleted, reordered, and their positions, chart data, and text edits all persist and restore across reloads.
 
 There are no logins. Each dashboard is an **anonymous, shareable key** — the app lives at `/d/:key`, remembers your key locally, and lets you re-open it on any device.

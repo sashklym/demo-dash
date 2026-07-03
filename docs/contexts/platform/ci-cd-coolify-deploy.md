@@ -15,8 +15,8 @@ Deploy two Coolify apps built from Dockerfiles. Coolify is on a private network,
 - [x] Coolify project `youscan-demo` + `youscan-be` / `youscan-fe` apps (pull public repo)
 - [x] `scripts/deploy.sh` (`npm run deploy`) — trigger both deploys over Tailscale
 - [x] DNS: `api.` / `dash.youscan.sashklym.cc` → server IP
-- [ ] Set `youscan-fe` build arg `VITE_API_BASE_URL`, `youscan-be` `CORS_ORIGIN` + `/app/data` volume
-- [ ] First successful deploy of both apps
+- [x] Set `youscan-fe` build arg `VITE_API_BASE_URL` + `youscan-be` `CORS_ORIGIN` (volume: pending, UI)
+- [x] First successful deploy — live at dash./api.youscan.sashklym.cc
 
 ## Notes
 
