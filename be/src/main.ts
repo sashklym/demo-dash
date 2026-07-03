@@ -9,7 +9,9 @@ import { setupGracefulShutdown } from './core/graceful-shutdown';
 async function main(): Promise<void> {
   const dataSource = createDataSource({ database: config.DATABASE_PATH });
   await dataSource.initialize();
-  await dataSource.runMigrations();
+  // Migrations are NOT run here — they run as their own process/step before the app
+  // starts (npm run migration:run → src/migrate.ts; in prod, the deploy's release
+  // command). This keeps schema changes decoupled from app boot and replica-safe.
 
   const container = buildContainer(dataSource);
   const app = await buildApp(container);
