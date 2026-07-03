@@ -1,63 +1,24 @@
-import type { CSSProperties } from 'react';
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  sortableKeyboardCoordinates,
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, LayoutGrid } from 'lucide-react';
+import { useState } from 'react';
+import { LayoutGrid } from 'lucide-react';
 import { AddWidgetMenu } from './AddWidgetMenu';
-import { WidgetCard } from './WidgetCard';
+import { SortableWidgetGrid } from './SortableWidgetGrid';
+import { VirtualWidgetGrid } from './VirtualWidgetGrid';
 import { WidgetGridSkeleton } from './WidgetGridSkeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useReorder, useWidgets } from '@/hooks/use-widgets';
-import type { Widget } from '@/lib/api/generated/model';
+import type { MoveTarget } from './WidgetMoveMenu';
 
-function SortableWidgetCard({ dashboardKey, widget }: { dashboardKey: string; widget: Widget }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
-  const style: CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.6 : 1,
-    zIndex: isDragging ? 20 : undefined,
-  };
-  const handle = (
-    <button
-      type="button"
-      aria-label="Drag to reorder"
-      className="shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground hover:bg-accent active:cursor-grabbing"
-      {...attributes}
-      {...listeners}
-    >
-      <GripVertical className="size-4" />
-    </button>
-  );
-  return (
-    <div ref={setNodeRef} style={style}>
-      <WidgetCard dashboardKey={dashboardKey} widget={widget} dragHandle={handle} />
-    </div>
-  );
-}
+// Above this many widgets, drag-to-reorder (which needs every card mounted) gives
+// way to a virtualized grid that only renders on-screen rows and lazily loads
+// their data. Below it, the draggable grid stays — reordering matters more than
+// virtualization when there are few widgets.
+const VIRTUALIZE_THRESHOLD = 60;
 
 export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
   const widgets = useWidgets(dashboardKey);
   const reorder = useReorder(dashboardKey);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const [scrollToId, setScrollToId] = useState<string | null>(null);
 
   if (widgets.isPending) {
     return <WidgetGridSkeleton />;
@@ -75,15 +36,19 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
   }
 
   const items = widgets.data ?? [];
+  const virtualized = items.length > VIRTUALIZE_THRESHOLD;
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = items.findIndex((w) => w.id === active.id);
-    const newIndex = items.findIndex((w) => w.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-    const orderedIds = arrayMove(items, oldIndex, newIndex).map((w) => w.id);
-    reorder.mutate({ key: dashboardKey, data: { orderedIds } });
+  const applyOrder = (orderedIds: string[]) => reorder.mutate({ key: dashboardKey, data: { orderedIds } });
+
+  function moveWidget(id: string, target: MoveTarget) {
+    const ids = items.map((w) => w.id);
+    const from = ids.indexOf(id);
+    if (from < 0) return;
+    const to =
+      target === 'start' ? 0 : target === 'end' ? ids.length - 1 : target === 'prev' ? from - 1 : from + 1;
+    if (to < 0 || to >= ids.length || to === from) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    applyOrder(ids);
   }
 
   return (
@@ -92,7 +57,7 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
         <h2 className="text-sm font-medium text-muted-foreground">
           {items.length} widget{items.length === 1 ? '' : 's'}
         </h2>
-        {items.length > 0 && <AddWidgetMenu dashboardKey={dashboardKey} />}
+        {items.length > 0 && <AddWidgetMenu dashboardKey={dashboardKey} onCreated={(w) => setScrollToId(w.id)} />}
       </div>
 
       {items.length === 0 ? (
@@ -104,18 +69,27 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
             <h3 className="text-lg font-semibold">Your dashboard is empty</h3>
             <p className="text-sm text-muted-foreground">Add a line chart, bar chart, or text widget to get started.</p>
           </div>
-          <AddWidgetMenu dashboardKey={dashboardKey} />
+          <AddWidgetMenu dashboardKey={dashboardKey} onCreated={(w) => setScrollToId(w.id)} />
         </Card>
+      ) : virtualized ? (
+        <VirtualWidgetGrid
+          dashboardKey={dashboardKey}
+          items={items}
+          onMove={moveWidget}
+          reorderPending={reorder.isPending}
+          scrollToId={scrollToId}
+          onScrollHandled={() => setScrollToId(null)}
+        />
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={items.map((w) => w.id)} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-              {items.map((widget) => (
-                <SortableWidgetCard key={widget.id} dashboardKey={dashboardKey} widget={widget} />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <SortableWidgetGrid
+          dashboardKey={dashboardKey}
+          items={items}
+          onMove={moveWidget}
+          applyOrder={applyOrder}
+          reorderPending={reorder.isPending}
+          scrollToId={scrollToId}
+          onScrollHandled={() => setScrollToId(null)}
+        />
       )}
     </div>
   );

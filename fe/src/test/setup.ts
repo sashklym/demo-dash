@@ -17,6 +17,10 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => undefined;
 }
 
+// jsdom has no layout engine, so window scrolling is unimplemented — @tanstack
+// react-virtual calls it while reconciling ranges.
+window.scrollTo = () => undefined;
+
 if (!('ResizeObserver' in globalThis)) {
   globalThis.ResizeObserver = class {
     observe() {}

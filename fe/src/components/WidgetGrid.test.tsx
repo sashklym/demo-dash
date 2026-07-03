@@ -41,6 +41,21 @@ describe('WidgetGrid', () => {
     expect(screen.getAllByTestId('widget')).toHaveLength(2);
   });
 
+  it('virtualizes large dashboards — renders far fewer cards than widgets', () => {
+    const data = Array.from({ length: 300 }, (_, i) => ({
+      id: String(i),
+      type: 'line',
+      position: i,
+      title: `W${i}`,
+      text: null,
+    }));
+    useWidgets.mockReturnValue({ isPending: false, isError: false, data });
+    render(<WidgetGrid dashboardKey="k" />);
+    const rendered = screen.getAllByTestId('widget');
+    expect(rendered.length).toBeGreaterThan(0);
+    expect(rendered.length).toBeLessThan(data.length);
+  });
+
   it('shows an error state with a retry button', () => {
     useWidgets.mockReturnValue({ isPending: false, isError: true, refetch: vi.fn() });
     render(<WidgetGrid dashboardKey="k" />);
