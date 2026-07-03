@@ -11,10 +11,10 @@ Let users drag widgets to reorder the grid, persisting via the existing reorder 
 
 ## Phases
 
-- [ ] Add `@dnd-kit/core` + sortable to the grid
-- [ ] Drag handle on `WidgetCard`; optimistic reorder
-- [ ] Call `useReorder` (already wired) on drop
-- [ ] E2E: drag reorders and survives reload
+- [x] Add `@dnd-kit/core` + sortable to the grid
+- [x] Drag handle on `WidgetCard`; optimistic reorder
+- [x] Call `useReorder` (already wired) on drop
+- [x] E2E: drag reorders and survives reload
 
 ## Acceptance
 

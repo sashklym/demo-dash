@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,19 +8,30 @@ import { TextWidget } from './TextWidget';
 import { useRemoveWidget } from '@/hooks/use-widgets';
 import type { Widget } from '@/lib/api/generated/model';
 
-export function WidgetCard({ dashboardKey, widget }: { dashboardKey: string; widget: Widget }) {
+export function WidgetCard({
+  dashboardKey,
+  widget,
+  dragHandle,
+}: {
+  dashboardKey: string;
+  widget: Widget;
+  dragHandle?: ReactNode;
+}) {
   const remove = useRemoveWidget(dashboardKey);
 
   return (
     <Card className="flex flex-col" data-testid={`widget-${widget.type}`}>
-      <CardHeader className="flex-row items-center justify-between space-y-0 border-b py-3">
-        <CardTitle className="truncate text-sm" title={widget.title}>
-          {widget.title}
-        </CardTitle>
+      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 border-b py-3">
+        <div className="flex min-w-0 items-center gap-1">
+          {dragHandle}
+          <CardTitle className="truncate text-sm" title={widget.title}>
+            {widget.title}
+          </CardTitle>
+        </div>
         <Button
           size="icon"
           variant="ghost"
-          className="text-muted-foreground hover:text-destructive"
+          className="shrink-0 text-muted-foreground hover:text-destructive"
           aria-label="Delete widget"
           disabled={remove.isPending}
           onClick={() =>

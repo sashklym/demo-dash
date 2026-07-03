@@ -5,6 +5,7 @@ const { useWidgets } = vi.hoisted(() => ({ useWidgets: vi.fn() }));
 vi.mock('@/hooks/use-widgets', () => ({
   useWidgets,
   useAddWidget: () => ({ mutate: vi.fn(), isPending: false }),
+  useReorder: () => ({ mutate: vi.fn() }),
 }));
 vi.mock('./WidgetCard', () => ({
   WidgetCard: ({ widget }: { widget: { title: string } }) => <div data-testid="widget">{widget.title}</div>,

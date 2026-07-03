@@ -66,6 +66,37 @@ test('restores a saved dashboard by key in a fresh browser', async ({ page, brow
   await fresh.close();
 });
 
+test('reorders widgets by dragging and persists the new order', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/d\/.+/);
+  for (const name of ['Line chart', 'Bar chart', 'Text']) {
+    await page.getByRole('button', { name: 'Add widget' }).click();
+    await page.getByRole('menuitem', { name, exact: true }).click();
+  }
+  await expect(page.getByText('3 widgets')).toBeVisible();
+
+  // Initial order: line, bar, text.
+  const cards = page.locator('[data-testid^="widget-"]');
+  await expect(cards.first()).toHaveAttribute('data-testid', 'widget-line');
+
+  // Drag the text widget's handle (3rd) onto the first card's position.
+  const handles = page.getByRole('button', { name: 'Drag to reorder' });
+  const src = await handles.nth(2).boundingBox();
+  const dst = await handles.nth(0).boundingBox();
+  if (!src || !dst) throw new Error('missing drag handles');
+  await page.mouse.move(src.x + src.width / 2, src.y + src.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(src.x + src.width / 2, src.y + src.height / 2 - 12, { steps: 5 }); // pass activation distance
+  await page.mouse.move(dst.x + dst.width / 2, dst.y + dst.height / 2, { steps: 12 });
+  await page.mouse.up();
+
+  // Text is now first; the order survives a reload.
+  await expect(cards.first()).toHaveAttribute('data-testid', 'widget-text');
+  await page.reload();
+  await expect(page.getByText('3 widgets')).toBeVisible();
+  await expect(page.locator('[data-testid^="widget-"]').first()).toHaveAttribute('data-testid', 'widget-text');
+});
+
 test('shows a not-found state for an unknown key', async ({ page }) => {
   await page.goto('/d/this-key-does-not-exist');
   await expect(page.getByText(/dashboard not found/i)).toBeVisible();

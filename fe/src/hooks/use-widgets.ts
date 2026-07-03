@@ -9,6 +9,7 @@ import {
   useReorderWidgets,
   useUpdateWidget,
 } from '@/lib/api/generated/api';
+import type { Widget } from '@/lib/api/generated/model';
 
 /**
  * Thin wrappers over the generated hooks that keep the widget list query fresh
@@ -42,8 +43,24 @@ export function useRemoveWidget(key: string) {
 
 export function useReorder(key: string) {
   const queryClient = useQueryClient();
+  const listKey = getListWidgetsQueryKey(key);
   return useReorderWidgets({
-    mutation: { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListWidgetsQueryKey(key) }) },
+    mutation: {
+      // Optimistically apply the new order; onSettled re-fetches to reconcile
+      // (which also reverts if the request fails).
+      onMutate: async (variables) => {
+        await queryClient.cancelQueries({ queryKey: listKey });
+        const previous = queryClient.getQueryData<Widget[]>(listKey);
+        if (previous) {
+          const byId = new Map(previous.map((w) => [w.id, w]));
+          const next = variables.data.orderedIds
+            .map((id) => byId.get(id))
+            .filter((w): w is Widget => Boolean(w));
+          queryClient.setQueryData(listKey, next);
+        }
+      },
+      onSettled: () => queryClient.invalidateQueries({ queryKey: listKey }),
+    },
   });
 }
 

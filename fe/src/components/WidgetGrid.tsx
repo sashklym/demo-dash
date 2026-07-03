@@ -1,13 +1,63 @@
-import { LayoutGrid } from 'lucide-react';
+import type { CSSProperties } from 'react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical, LayoutGrid } from 'lucide-react';
 import { AddWidgetMenu } from './AddWidgetMenu';
 import { WidgetCard } from './WidgetCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useWidgets } from '@/hooks/use-widgets';
+import { useReorder, useWidgets } from '@/hooks/use-widgets';
+import type { Widget } from '@/lib/api/generated/model';
+
+function SortableWidgetCard({ dashboardKey, widget }: { dashboardKey: string; widget: Widget }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 20 : undefined,
+  };
+  const handle = (
+    <button
+      type="button"
+      aria-label="Drag to reorder"
+      className="shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground hover:bg-accent active:cursor-grabbing"
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="size-4" />
+    </button>
+  );
+  return (
+    <div ref={setNodeRef} style={style}>
+      <WidgetCard dashboardKey={dashboardKey} widget={widget} dragHandle={handle} />
+    </div>
+  );
+}
 
 export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
   const widgets = useWidgets(dashboardKey);
+  const reorder = useReorder(dashboardKey);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   if (widgets.isPending) {
     return (
@@ -32,6 +82,16 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
 
   const items = widgets.data ?? [];
 
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = items.findIndex((w) => w.id === active.id);
+    const newIndex = items.findIndex((w) => w.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const orderedIds = arrayMove(items, oldIndex, newIndex).map((w) => w.id);
+    reorder.mutate({ key: dashboardKey, data: { orderedIds } });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -53,11 +113,15 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
           <AddWidgetMenu dashboardKey={dashboardKey} />
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((widget) => (
-            <WidgetCard key={widget.id} dashboardKey={dashboardKey} widget={widget} />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((w) => w.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {items.map((widget) => (
+                <SortableWidgetCard key={widget.id} dashboardKey={dashboardKey} widget={widget} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );
