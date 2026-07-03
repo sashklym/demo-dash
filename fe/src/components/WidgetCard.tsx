@@ -20,7 +20,7 @@ export function WidgetCard({
   const remove = useRemoveWidget(dashboardKey);
 
   return (
-    <Card className="flex flex-col" data-testid={`widget-${widget.type}`}>
+    <Card className="flex h-[360px] flex-col" data-testid={`widget-${widget.type}`}>
       <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 border-b py-3">
         <div className="flex min-w-0 items-center gap-1">
           {dragHandle}
@@ -41,7 +41,7 @@ export function WidgetCard({
           <Trash2 />
         </Button>
       </CardHeader>
-      <CardContent className="flex-1 pt-4">
+      <CardContent className="flex min-h-0 flex-1 flex-col p-4">
         {widget.type === 'text' ? (
           <TextWidget dashboardKey={dashboardKey} widget={widget} />
         ) : (

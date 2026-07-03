@@ -54,7 +54,7 @@ export function DashboardPage() {
   return (
     <div className="min-h-screen bg-muted/30">
       <DashboardHeader dashboardKey={key} />
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="px-4 py-6 sm:px-6">
         {dashboard.isSuccess ? <WidgetGrid dashboardKey={key} /> : <WidgetGridSkeleton />}
       </main>
     </div>

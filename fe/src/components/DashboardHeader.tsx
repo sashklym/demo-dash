@@ -49,7 +49,7 @@ export function DashboardHeader({ dashboardKey }: { dashboardKey: string }) {
 
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
         <div className="mr-auto flex min-w-0 items-center gap-2">
           <span className="whitespace-nowrap text-lg font-semibold">YouScan Dashboard</span>
           <code

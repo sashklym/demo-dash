@@ -13,15 +13,15 @@ export function WidgetGridSkeleton() {
         <Skeleton className="h-5 w-20" />
         <Skeleton className="h-9 w-32 rounded-md" />
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {[0, 1, 2].map((i) => (
-          <Card key={i} className="flex flex-col overflow-hidden">
+          <Card key={i} className="flex h-[360px] flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b p-4">
               <Skeleton className="h-4 w-28" />
               <Skeleton className="size-7 rounded-md" />
             </div>
-            <div className="p-4">
-              <Skeleton className="h-44 w-full rounded-md" />
+            <div className="flex-1 p-4">
+              <Skeleton className="h-full w-full rounded-md" />
             </div>
           </Card>
         ))}

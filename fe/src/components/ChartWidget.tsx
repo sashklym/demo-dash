@@ -26,8 +26,8 @@ export function ChartWidget({ dashboardKey, widget }: { dashboardKey: string; wi
   const isBar = widget.type === 'bar';
 
   return (
-    <div className="space-y-2">
-      <div className="h-[180px]" data-testid="chart-body">
+    <div className="flex h-full flex-col gap-2">
+      <div className="min-h-0 flex-1" data-testid="chart-body">
         {data.isPending ? (
           <Skeleton className="h-full w-full" />
         ) : data.isError ? (

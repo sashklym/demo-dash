@@ -30,13 +30,13 @@ export function TextWidget({ dashboardKey, widget }: { dashboardKey: string; wid
 
   if (editing) {
     return (
-      <div className="space-y-2">
+      <div className="flex h-full flex-col gap-2">
         <Textarea
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          rows={6}
           aria-label="Widget text"
           autoFocus
+          className="min-h-0 flex-1 resize-none"
         />
         <div className="flex justify-end gap-2">
           <Button
@@ -60,10 +60,12 @@ export function TextWidget({ dashboardKey, widget }: { dashboardKey: string; wid
   const hasText = Boolean(widget.text && widget.text.trim());
 
   return (
-    <div className="space-y-2">
-      <p className="min-h-[132px] whitespace-pre-wrap text-sm" data-testid="text-body">
-        {hasText ? widget.text : <span className="text-muted-foreground">Empty — click Edit to add text.</span>}
-      </p>
+    <div className="flex h-full flex-col gap-2">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <p className="whitespace-pre-wrap text-sm" data-testid="text-body">
+          {hasText ? widget.text : <span className="text-muted-foreground">Empty — click Edit to add text.</span>}
+        </p>
+      </div>
       <div className="flex justify-end">
         <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setEditing(true)}>
           <Pencil /> Edit
