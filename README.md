@@ -29,7 +29,8 @@ Both `openapi.json` and the generated client are committed, and CI fails if eith
 | **Frontend** (`fe/`) | React 18 · Vite · TypeScript · Tailwind · shadcn/ui · Recharts · React Query |
 | **Contract** | `@fastify/swagger` (OpenAPI 3.1) → **orval** client generation |
 | **Tests** | Vitest (BE unit + integration, FE unit) · Playwright (whole-service e2e) |
-| **CI/CD** | GitHub Actions → Coolify (Docker) |
+| **CI** | GitHub Actions — lint · typecheck · test · OpenAPI-drift on every push/PR |
+| **Deploy** | Coolify (Docker), local-triggered — see below |
 
 ## Layout
 

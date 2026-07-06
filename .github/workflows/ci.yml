@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Newer pushes to the same branch/PR cancel in-flight runs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — lint · typecheck · test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: be
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: be/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run test:integration
+
+  frontend:
+    name: Frontend — lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run build
+
+  contract:
+    name: Contract — OpenAPI + client drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            be/package-lock.json
+            fe/package-lock.json
+      - name: Install backend deps
+        working-directory: be
+        run: npm ci
+      - name: Regenerate OpenAPI spec
+        working-directory: be
+        run: npm run openapi:export
+      - name: Install frontend deps
+        working-directory: fe
+        run: npm ci
+      - name: Regenerate typed client
+        working-directory: fe
+        run: npm run api:generate
+      - name: Fail if the committed contract drifted from source
+        run: |
+          if ! git diff --exit-code -- \
+            be/openapi.json \
+            fe/src/lib/api/openapi.json \
+            fe/src/lib/api/generated; then
+            echo "::error::OpenAPI spec or generated client is out of date. Run 'cd be && npm run openapi:export && cd ../fe && npm run api:generate' and commit the result."
+            exit 1
+          fi

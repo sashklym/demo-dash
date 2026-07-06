@@ -20,4 +20,4 @@ Deploy two Coolify apps built from Dockerfiles. Coolify is on a private network,
 
 ## Notes
 
-GitHub Actions was removed — Coolify is only reachable on the private network, so public runners can't trigger it. Builds are pulled by Coolify and triggered from a local machine.
+**CI vs. deploy are split.** GitHub Actions (`.github/workflows/ci.yml`) runs the quality gates on every push/PR — three parallel jobs: backend (lint · typecheck · unit + integration), frontend (lint · typecheck · unit · build), and a contract job that regenerates `openapi.json` + the orval client and fails on drift. There is **no deploy step in CI**: Coolify is only reachable on the private network, so public runners can't trigger it. Builds are pulled by Coolify and triggered from a local machine (`npm run deploy`).
