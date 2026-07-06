@@ -10,10 +10,13 @@ import {
   ChartDataSchema,
   CreateWidgetBody,
   DashboardScopeParams,
+  ListWidgetsQuery,
+  MoveWidgetBody,
   PeriodSchema,
   ReorderBody,
   UpdateWidgetBody,
   WidgetItemParams,
+  WidgetPageSchema,
   WidgetSchema,
   WidgetTypeSchema,
 } from './widget.schemas';
@@ -24,7 +27,7 @@ function toResponse(widget: Widget) {
   return {
     id: widget.id,
     type: widget.type,
-    position: widget.position,
+    rank: widget.rank,
     title: widget.title,
     text: widget.text,
     period: widget.period,
@@ -39,9 +42,11 @@ export class WidgetController implements Controller {
     app.addSchema(WidgetTypeSchema);
     app.addSchema(PeriodSchema);
     app.addSchema(WidgetSchema);
+    app.addSchema(WidgetPageSchema);
     app.addSchema(CreateWidgetBody);
     app.addSchema(UpdateWidgetBody);
     app.addSchema(ReorderBody);
+    app.addSchema(MoveWidgetBody);
     app.addSchema(ChartDataSchema);
 
     app.get(
@@ -50,14 +55,15 @@ export class WidgetController implements Controller {
         schema: {
           operationId: 'listWidgets',
           tags: ['widgets'],
-          summary: 'List a dashboard’s widgets (ordered by position)',
+          summary: 'List a dashboard’s widgets, paged and ordered by rank',
           params: DashboardScopeParams,
-          response: { 200: Type.Array(Type.Ref(WidgetSchema)), 404: Type.Ref(ErrorSchema) },
+          querystring: ListWidgetsQuery,
+          response: { 200: Type.Ref(WidgetPageSchema), 404: Type.Ref(ErrorSchema) },
         },
       },
       async (request) => {
-        const widgets = await this.service.list(request.params.key);
-        return widgets.map(toResponse);
+        const page = await this.service.list(request.params.key, request.query);
+        return { ...page, items: page.items.map(toResponse) };
       },
     );
 
@@ -97,6 +103,30 @@ export class WidgetController implements Controller {
       async (request) => {
         const widgets = await this.service.reorder(request.params.key, request.body.orderedIds);
         return widgets.map(toResponse);
+      },
+    );
+
+    // Single-widget move for the virtualized grid, which only knows a widget id
+    // and a target index — not the full order. O(1): one row's rank changes.
+    app.put(
+      `${BASE}/:id/position`,
+      {
+        schema: {
+          operationId: 'moveWidget',
+          tags: ['widgets'],
+          summary: 'Move a widget to a target index in the dashboard order',
+          params: WidgetItemParams,
+          body: Type.Ref(MoveWidgetBody),
+          response: { 200: Type.Ref(WidgetSchema), 404: Type.Ref(ErrorSchema) },
+        },
+      },
+      async (request) => {
+        const widget = await this.service.moveToPosition(
+          request.params.key,
+          request.params.id,
+          request.body.position,
+        );
+        return toResponse(widget);
       },
     );
 

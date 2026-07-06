@@ -14,7 +14,7 @@ vi.mock('./TextWidget', () => ({ TextWidget: () => <div data-testid="text-body" 
 
 import { WidgetCard } from './WidgetCard';
 
-const widget: Widget = { id: 'w1', type: 'line', position: 0, title: 'Mentions', text: null, period: 'month' };
+const widget: Widget = { id: 'w1', type: 'line', rank: 'a0', title: 'Mentions', text: null, period: 'month' };
 
 describe('WidgetCard', () => {
   beforeEach(() => {

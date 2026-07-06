@@ -12,7 +12,8 @@ import type { Period } from './period';
 export interface Widget {
   id: string;
   type: WidgetType;
-  position: number;
+  /** Fractional order key; widgets sort by this ascending */
+  rank: string;
   title: string;
   /** Body of a text widget; null for charts */
   text: WidgetText;

@@ -22,6 +22,7 @@ export type Period = 'day' | 'week' | 'month' | 'year';
  */
 @Entity('widgets')
 @Index('IDX_widgets_dashboard_id', ['dashboard_id'])
+@Index('IDX_widgets_dashboard_rank', ['dashboard_id', 'rank'])
 export class Widget {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -36,8 +37,13 @@ export class Widget {
   @Column({ type: 'varchar' })
   type!: WidgetType;
 
-  @Column({ type: 'integer' })
-  position!: number;
+  /**
+   * Fractional order key (see core/fractional-index). Widgets sort by `rank ASC`;
+   * a move computes a key between neighbors and writes only this row — no
+   * O(n) position renumbering.
+   */
+  @Column({ type: 'varchar' })
+  rank!: string;
 
   @Column({ type: 'varchar' })
   title!: string;

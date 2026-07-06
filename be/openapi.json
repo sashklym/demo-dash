@@ -78,7 +78,7 @@
         "required": [
           "id",
           "type",
-          "position",
+          "rank",
           "title",
           "text",
           "period"
@@ -91,8 +91,9 @@
           "type": {
             "$ref": "#/components/schemas/WidgetType"
           },
-          "position": {
-            "type": "integer"
+          "rank": {
+            "description": "Fractional order key; widgets sort by this ascending",
+            "type": "string"
           },
           "title": {
             "type": "string"
@@ -110,6 +111,33 @@
           },
           "period": {
             "$ref": "#/components/schemas/Period"
+          }
+        }
+      },
+      "WidgetPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Widget"
+            }
+          },
+          "total": {
+            "description": "Total widgets on the dashboard (across all pages)",
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
           }
         }
       },
@@ -153,10 +181,6 @@
               }
             ]
           },
-          "position": {
-            "minimum": 0,
-            "type": "integer"
-          },
           "period": {
             "$ref": "#/components/schemas/Period"
           }
@@ -175,6 +199,19 @@
               "format": "uuid",
               "type": "string"
             }
+          }
+        }
+      },
+      "MoveWidgetBody": {
+        "type": "object",
+        "required": [
+          "position"
+        ],
+        "properties": {
+          "position": {
+            "minimum": 0,
+            "description": "Target index in the ordered list",
+            "type": "integer"
           }
         }
       },
@@ -298,11 +335,32 @@
     "/api/dashboards/{key}/widgets": {
       "get": {
         "operationId": "listWidgets",
-        "summary": "List a dashboard’s widgets (ordered by position)",
+        "summary": "List a dashboard’s widgets, paged and ordered by rank",
         "tags": [
           "widgets"
         ],
         "parameters": [
+          {
+            "schema": {
+              "minimum": 0,
+              "default": 0,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "offset",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
           {
             "schema": {
               "minLength": 1,
@@ -320,10 +378,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Widget"
-                  }
+                  "$ref": "#/components/schemas/WidgetPage"
                 }
               }
             }
@@ -431,6 +486,69 @@
                   "items": {
                     "$ref": "#/components/schemas/Widget"
                   }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboards/{key}/widgets/{id}/position": {
+      "put": {
+        "operationId": "moveWidget",
+        "summary": "Move a widget to a target index in the dashboard order",
+        "tags": [
+          "widgets"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveWidgetBody"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "description": "Dashboard key"
+          },
+          {
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "Widget id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Widget"
                 }
               }
             }

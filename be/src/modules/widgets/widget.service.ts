@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { DataSource, type Repository } from 'typeorm';
 import { TYPES } from '../../types';
 import { BadRequestError, NotFoundError } from '../../core/errors';
+import { generateKeyBetween, generateNKeysBetween } from '../../core/fractional-index';
 import { mulberry32, randomSeed } from '../../core/random';
 import { DashboardService } from '../dashboards/dashboard.service';
 import { Widget, type Period, type WidgetType } from './widget.entity';
@@ -15,9 +16,23 @@ export interface CreateWidgetInput {
 export interface UpdateWidgetInput {
   title?: string;
   text?: string | null;
-  position?: number;
   period?: Period;
 }
+
+export interface ListOptions {
+  offset?: number;
+  limit?: number;
+}
+
+export interface WidgetPage {
+  items: Widget[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
 
 /** A bucket of YouScan-style sentiment counts. */
 export interface SentimentPoint {
@@ -77,22 +92,32 @@ export class WidgetService {
     this.repo = dataSource.getRepository(Widget);
   }
 
-  async list(key: string): Promise<Widget[]> {
+  /** A page of widgets (ordered by rank) plus the dashboard-scoped total. */
+  async list(key: string, options: ListOptions = {}): Promise<WidgetPage> {
     const dashboard = await this.dashboards.requireByKey(key);
-    return this.repo.find({
+    const offset = Math.max(0, Math.trunc(options.offset ?? 0));
+    const limit = Math.min(MAX_LIMIT, Math.max(1, Math.trunc(options.limit ?? DEFAULT_LIMIT)));
+    const [items, total] = await this.repo.findAndCount({
       where: { dashboard_id: dashboard.id },
-      order: { position: 'ASC', created_at: 'ASC' },
+      order: { rank: 'ASC', created_at: 'ASC' },
+      skip: offset,
+      take: limit,
     });
+    return { items, total, offset, limit };
   }
 
   async create(key: string, input: CreateWidgetInput): Promise<Widget> {
     const dashboard = await this.dashboards.requireByKey(key);
-    const maxPosition = await this.repo.maximum('position', { dashboard_id: dashboard.id });
+    const last = await this.repo.findOne({
+      where: { dashboard_id: dashboard.id },
+      order: { rank: 'DESC' },
+      select: { rank: true },
+    });
 
     const widget = this.repo.create({
       dashboard_id: dashboard.id,
       type: input.type,
-      position: (maxPosition ?? -1) + 1,
+      rank: generateKeyBetween(last?.rank ?? null, null),
       title: input.title?.trim() || defaultTitle(input.type),
       text: input.type === 'text' ? (input.text ?? '') : null,
       seed: randomSeed(),
@@ -104,7 +129,6 @@ export class WidgetService {
     const widget = await this.requireWidget(key, id);
     if (input.title !== undefined) widget.title = input.title;
     if (input.text !== undefined) widget.text = input.text;
-    if (input.position !== undefined) widget.position = input.position;
     if (input.period !== undefined) widget.period = input.period;
     return this.repo.save(widget);
   }
@@ -114,23 +138,52 @@ export class WidgetService {
     await this.repo.remove(widget);
   }
 
-  /** Reassign contiguous positions from the given order; unlisted widgets keep their relative order at the end. */
+  /**
+   * Reassign fresh, evenly-spaced ranks from the given order; unlisted widgets
+   * keep their relative order at the end. Used by the small draggable grid, which
+   * loads the whole list and sends the full order.
+   */
   async reorder(key: string, orderedIds: string[]): Promise<Widget[]> {
     const dashboard = await this.dashboards.requireByKey(key);
-    const widgets = await this.repo.find({ where: { dashboard_id: dashboard.id } });
+    const widgets = await this.repo.find({
+      where: { dashboard_id: dashboard.id },
+      order: { rank: 'ASC', created_at: 'ASC' },
+    });
     const byId = new Map(widgets.map((w) => [w.id, w]));
 
-    let position = 0;
-    for (const id of orderedIds) {
-      const widget = byId.get(id);
-      if (widget) widget.position = position++;
-    }
-    const listed = new Set(orderedIds);
-    const leftovers = widgets.filter((w) => !listed.has(w.id)).sort((a, b) => a.position - b.position);
-    for (const widget of leftovers) widget.position = position++;
+    const listed = orderedIds.map((id) => byId.get(id)).filter((w): w is Widget => Boolean(w));
+    const listedIds = new Set(listed.map((w) => w.id));
+    const leftovers = widgets.filter((w) => !listedIds.has(w.id));
+    const ordered = [...listed, ...leftovers];
 
-    await this.repo.save(widgets);
-    return this.list(key);
+    const ranks = generateNKeysBetween(null, null, ordered.length);
+    ordered.forEach((widget, i) => (widget.rank = ranks[i]!));
+
+    await this.repo.save(ordered);
+    return ordered;
+  }
+
+  /**
+   * Move one widget to a target index in the dashboard order. Computes a rank
+   * between the widgets that will surround it and writes only that row — O(1)
+   * regardless of dashboard size. `target` is clamped to a valid index.
+   */
+  async moveToPosition(key: string, id: string, target: number): Promise<Widget> {
+    const widget = await this.requireWidget(key, id);
+    const siblings = await this.repo.find({
+      where: { dashboard_id: widget.dashboard_id },
+      order: { rank: 'ASC', created_at: 'ASC' },
+      select: { id: true, rank: true },
+    });
+
+    // The order the widget moves *within* excludes the widget itself.
+    const others = siblings.filter((w) => w.id !== id);
+    const index = Math.min(Math.max(0, Math.trunc(target)), others.length);
+    const before = index > 0 ? others[index - 1]!.rank : null;
+    const after = index < others.length ? others[index]!.rank : null;
+
+    widget.rank = generateKeyBetween(before, after);
+    return this.repo.save(widget);
   }
 
   async chartData(key: string, id: string, period?: Period): Promise<ChartData> {

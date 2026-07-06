@@ -31,9 +31,12 @@ import type {
   Dashboard,
   Error,
   GetWidgetDataParams,
+  ListWidgetsParams,
+  MoveWidgetBody,
   ReorderBody,
   UpdateWidgetBody,
-  Widget
+  Widget,
+  WidgetPage
 } from './model';
 
 import { apiClient } from '../http';
@@ -199,16 +202,18 @@ export function useGetDashboard<TData = Awaited<ReturnType<typeof getDashboard>>
 
 
 /**
- * @summary List a dashboard’s widgets (ordered by position)
+ * @summary List a dashboard’s widgets, paged and ordered by rank
  */
 export const listWidgets = (
     key: string,
+    params?: ListWidgetsParams,
  signal?: AbortSignal
 ) => {
       
       
-      return apiClient<Widget[]>(
-      {url: `/api/dashboards/${key}/widgets`, method: 'GET', signal
+      return apiClient<WidgetPage>(
+      {url: `/api/dashboards/${key}/widgets`, method: 'GET',
+        params, signal
     },
       );
     }
@@ -216,23 +221,25 @@ export const listWidgets = (
 
 
 
-export const getListWidgetsQueryKey = (key?: string,) => {
+export const getListWidgetsQueryKey = (key?: string,
+    params?: ListWidgetsParams,) => {
     return [
-    `/api/dashboards/${key}/widgets`
+    `/api/dashboards/${key}/widgets`, ...(params ? [params]: [])
     ] as const;
     }
 
     
-export const getListWidgetsQueryOptions = <TData = Awaited<ReturnType<typeof listWidgets>>, TError = ErrorType<Error>>(key: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>>, }
+export const getListWidgetsQueryOptions = <TData = Awaited<ReturnType<typeof listWidgets>>, TError = ErrorType<Error>>(key: string,
+    params?: ListWidgetsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListWidgetsQueryKey(key);
+  const queryKey =  queryOptions?.queryKey ?? getListWidgetsQueryKey(key,params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWidgets>>> = ({ signal }) => listWidgets(key, signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWidgets>>> = ({ signal }) => listWidgets(key,params, signal);
 
       
 
@@ -246,7 +253,8 @@ export type ListWidgetsQueryError = ErrorType<Error>
 
 
 export function useListWidgets<TData = Awaited<ReturnType<typeof listWidgets>>, TError = ErrorType<Error>>(
- key: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>> & Pick<
+ key: string,
+    params: undefined |  ListWidgetsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listWidgets>>,
           TError,
@@ -256,7 +264,8 @@ export function useListWidgets<TData = Awaited<ReturnType<typeof listWidgets>>, 
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useListWidgets<TData = Awaited<ReturnType<typeof listWidgets>>, TError = ErrorType<Error>>(
- key: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>> & Pick<
+ key: string,
+    params?: ListWidgetsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listWidgets>>,
           TError,
@@ -266,19 +275,21 @@ export function useListWidgets<TData = Awaited<ReturnType<typeof listWidgets>>, 
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useListWidgets<TData = Awaited<ReturnType<typeof listWidgets>>, TError = ErrorType<Error>>(
- key: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>>, }
+ key: string,
+    params?: ListWidgetsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>>, }
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary List a dashboard’s widgets (ordered by position)
+ * @summary List a dashboard’s widgets, paged and ordered by rank
  */
 
 export function useListWidgets<TData = Awaited<ReturnType<typeof listWidgets>>, TError = ErrorType<Error>>(
- key: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>>, }
+ key: string,
+    params?: ListWidgetsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWidgets>>, TError, TData>>, }
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getListWidgetsQueryOptions(key,options)
+  const queryOptions = getListWidgetsQueryOptions(key,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -418,6 +429,72 @@ export const useReorderWidgets = <TError = ErrorType<Error>,
       > => {
 
       const mutationOptions = getReorderWidgetsMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    
+/**
+ * @summary Move a widget to a target index in the dashboard order
+ */
+export const moveWidget = (
+    key: string,
+    id: string,
+    moveWidgetBody: BodyType<MoveWidgetBody>,
+ ) => {
+      
+      
+      return apiClient<Widget>(
+      {url: `/api/dashboards/${key}/widgets/${id}/position`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: moveWidgetBody
+    },
+      );
+    }
+  
+
+
+export const getMoveWidgetMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveWidget>>, TError,{key: string;id: string;data: BodyType<MoveWidgetBody>}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof moveWidget>>, TError,{key: string;id: string;data: BodyType<MoveWidgetBody>}, TContext> => {
+
+const mutationKey = ['moveWidget'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof moveWidget>>, {key: string;id: string;data: BodyType<MoveWidgetBody>}> = (props) => {
+          const {key,id,data} = props ?? {};
+
+          return  moveWidget(key,id,data,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MoveWidgetMutationResult = NonNullable<Awaited<ReturnType<typeof moveWidget>>>
+    export type MoveWidgetMutationBody = BodyType<MoveWidgetBody>
+    export type MoveWidgetMutationError = ErrorType<Error>
+
+    /**
+ * @summary Move a widget to a target index in the dashboard order
+ */
+export const useMoveWidget = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveWidget>>, TError,{key: string;id: string;data: BodyType<MoveWidgetBody>}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof moveWidget>>,
+        TError,
+        {key: string;id: string;data: BodyType<MoveWidgetBody>},
+        TContext
+      > => {
+
+      const mutationOptions = getMoveWidgetMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }

@@ -65,15 +65,15 @@ export function SortableWidgetGrid({
   items,
   onMove,
   applyOrder,
-  reorderPending,
+  movePending,
   scrollToId,
   onScrollHandled,
 }: {
   dashboardKey: string;
   items: Widget[];
-  onMove: (id: string, target: MoveTarget) => void;
+  onMove: (id: string, index: number, target: MoveTarget) => void;
   applyOrder: (orderedIds: string[]) => void;
-  reorderPending: boolean;
+  movePending: boolean;
   scrollToId: string | null;
   onScrollHandled: () => void;
 }) {
@@ -116,10 +116,10 @@ export function SortableWidgetGrid({
               dashboardKey={dashboardKey}
               widget={widget}
               moveActions={{
-                onMove: (target) => onMove(widget.id, target),
+                onMove: (target) => onMove(widget.id, index, target),
                 isFirst: index === 0,
                 isLast: index === items.length - 1,
-                isPending: reorderPending,
+                isPending: movePending,
               }}
             />
           ))}

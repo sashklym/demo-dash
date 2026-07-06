@@ -5,15 +5,11 @@
  * Anonymous widget dashboards — create a dashboard, add line/bar/text widgets, restore later by key. The frontend client is generated from this spec.
  * OpenAPI spec version: 1.0.0
  */
-import type { UpdateWidgetBodyText } from './updateWidgetBodyText';
-import type { Period } from './period';
 
-export interface UpdateWidgetBody {
+export interface MoveWidgetBody {
   /**
-   * @minLength 1
-   * @maxLength 120
+   * Target index in the ordered list
+   * @minimum 0
    */
-  title?: string;
-  text?: UpdateWidgetBodyText;
-  period?: Period;
+  position: number;
 }

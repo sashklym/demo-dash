@@ -11,7 +11,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { TextWidget } from './TextWidget';
 
-const widget: Widget = { id: 'w1', type: 'text', position: 0, title: 'Notes', text: 'hello', period: 'month' };
+const widget: Widget = { id: 'w1', type: 'text', rank: 'a0', title: 'Notes', text: 'hello', period: 'month' };
 
 describe('TextWidget', () => {
   beforeEach(() => mutate.mockReset());

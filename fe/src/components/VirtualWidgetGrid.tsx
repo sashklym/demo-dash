@@ -1,9 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { WidgetCard } from './WidgetCard';
 import type { MoveTarget } from './WidgetMoveMenu';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useColumnCount } from '@/hooks/use-column-count';
-import type { Widget } from '@/lib/api/generated/model';
+import { PAGE_SIZE, useWidgetWindow } from '@/hooks/use-widgets';
 
 // Cards are a fixed height (`h-[360px]` in WidgetCard) with a 16px grid gap, so
 // every row is exactly this tall — the virtualizer needs no dynamic measurement.
@@ -11,34 +13,50 @@ const CARD_HEIGHT = 360;
 const ROW_GAP = 16;
 const ROW_HEIGHT = CARD_HEIGHT + ROW_GAP;
 
+/** Placeholder for an on-screen widget whose page hasn't arrived yet. */
+function WidgetCardSkeleton() {
+  return (
+    <Card className="flex h-[360px] flex-col overflow-hidden">
+      <div className="flex items-center justify-between border-b p-4">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="size-7 rounded-md" />
+      </div>
+      <div className="flex-1 p-4">
+        <Skeleton className="h-full w-full rounded-md" />
+      </div>
+    </Card>
+  );
+}
+
 /**
  * Windowed grid for large dashboards: only the rows near the viewport are
- * mounted, so a dashboard with thousands of widgets renders a couple dozen cards
- * at a time. Because each ChartWidget fetches its own data on mount, this also
- * makes data-loading lazy — off-screen widgets fire no requests until scrolled to.
+ * mounted, and only the widget *pages* overlapping that window are fetched. A
+ * dashboard with thousands of widgets renders a couple dozen cards and holds a
+ * couple of pages in memory at a time; the rest are skeletons until scrolled to.
  *
  * Reordering is intentionally absent here (see WidgetGrid): dnd-kit needs every
- * card mounted to compute drop targets, which defeats virtualization.
+ * card mounted to compute drop targets, which defeats virtualization. The move
+ * menu (start / up / down / end) drives the O(1) move endpoint instead.
  */
 export function VirtualWidgetGrid({
   dashboardKey,
-  items,
+  total,
   onMove,
-  reorderPending,
+  movePending,
   scrollToId,
   onScrollHandled,
 }: {
   dashboardKey: string;
-  items: Widget[];
-  onMove: (id: string, target: MoveTarget) => void;
-  reorderPending: boolean;
+  total: number;
+  onMove: (id: string, index: number, target: MoveTarget) => void;
+  movePending: boolean;
   scrollToId: string | null;
   onScrollHandled: () => void;
 }) {
   const cols = useColumnCount();
   const parentRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
-  const rowCount = Math.ceil(items.length / cols);
+  const rowCount = Math.ceil(total / cols);
 
   // The window scrolls the whole document, so the virtualizer needs the list's
   // offset from the top of the page to know which rows are on screen.
@@ -53,23 +71,36 @@ export function VirtualWidgetGrid({
     scrollMargin,
   });
 
-  // A freshly-added widget lands at the end of the list, likely far below the
-  // fold and unmounted — drive the virtualizer by row index instead of the DOM.
+  const virtualRows = virtualizer.getVirtualItems();
+  const firstRow = virtualRows[0]?.index ?? 0;
+  const lastRow = virtualRows[virtualRows.length - 1]?.index ?? 0;
+
+  // Which widget pages overlap the visible rows? Only those get fetched.
+  const pageIndices = useMemo(() => {
+    const firstItem = firstRow * cols;
+    const lastItem = Math.min(total - 1, lastRow * cols + cols - 1);
+    const pages: number[] = [];
+    for (let p = Math.floor(firstItem / PAGE_SIZE); p <= Math.floor(lastItem / PAGE_SIZE); p++) {
+      pages.push(p);
+    }
+    return pages;
+  }, [firstRow, lastRow, cols, total]);
+
+  const byIndex = useWidgetWindow(dashboardKey, pageIndices);
+
+  // A freshly-added widget is appended, so it lands on the last row — likely
+  // below the fold and unmounted. Drive the virtualizer to the end by index.
   useEffect(() => {
     if (!scrollToId) return;
-    const index = items.findIndex((widget) => widget.id === scrollToId);
-    if (index < 0) return;
-    virtualizer.scrollToIndex(Math.floor(index / cols), { align: 'center' });
+    virtualizer.scrollToIndex(rowCount - 1, { align: 'center' });
     onScrollHandled();
-  }, [scrollToId, items, cols, virtualizer, onScrollHandled]);
+  }, [scrollToId, rowCount, virtualizer, onScrollHandled]);
 
   return (
     <div ref={parentRef}>
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-        {virtualizer.getVirtualItems().map((row) => {
+        {virtualRows.map((row) => {
           const start = row.index * cols;
-          const rowItems = items.slice(start, start + cols);
-          const lastIndex = items.length - 1;
           return (
             <div
               key={row.key}
@@ -85,18 +116,22 @@ export function VirtualWidgetGrid({
                 transform: `translateY(${row.start - virtualizer.options.scrollMargin}px)`,
               }}
             >
-              {rowItems.map((widget, colIndex) => {
+              {Array.from({ length: Math.min(cols, total - start) }, (_, colIndex) => {
                 const index = start + colIndex;
+                const widget = byIndex.get(index);
+                if (!widget) {
+                  return <WidgetCardSkeleton key={index} />;
+                }
                 return (
                   <div key={widget.id} id={`widget-card-${widget.id}`}>
                     <WidgetCard
                       dashboardKey={dashboardKey}
                       widget={widget}
                       moveActions={{
-                        onMove: (target) => onMove(widget.id, target),
+                        onMove: (target) => onMove(widget.id, index, target),
                         isFirst: index === 0,
-                        isLast: index === lastIndex,
-                        isPending: reorderPending,
+                        isLast: index === total - 1,
+                        isPending: movePending,
                       }}
                     />
                   </div>
