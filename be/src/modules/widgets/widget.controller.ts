@@ -11,8 +11,8 @@ import {
   CreateWidgetBody,
   DashboardScopeParams,
   ListWidgetsQuery,
-  MoveWidgetBody,
   PeriodSchema,
+  PlaceWidgetBody,
   ReorderBody,
   UpdateWidgetBody,
   WidgetItemParams,
@@ -23,11 +23,14 @@ import {
 
 const BASE = '/api/dashboards/:key/widgets';
 
+/** `row_index` / `col_index` are internal names — `ROW` is a SQLite keyword. */
 function toResponse(widget: Widget) {
   return {
     id: widget.id,
     type: widget.type,
-    rank: widget.rank,
+    row: widget.row_index,
+    col: widget.col_index,
+    size: widget.size,
     title: widget.title,
     text: widget.text,
     period: widget.period,
@@ -46,7 +49,7 @@ export class WidgetController implements Controller {
     app.addSchema(CreateWidgetBody);
     app.addSchema(UpdateWidgetBody);
     app.addSchema(ReorderBody);
-    app.addSchema(MoveWidgetBody);
+    app.addSchema(PlaceWidgetBody);
     app.addSchema(ChartDataSchema);
 
     app.get(
@@ -55,7 +58,7 @@ export class WidgetController implements Controller {
         schema: {
           operationId: 'listWidgets',
           tags: ['widgets'],
-          summary: 'List a dashboard’s widgets, paged and ordered by rank',
+          summary: 'List a range of a dashboard’s rows, ordered by (row, col)',
           params: DashboardScopeParams,
           querystring: ListWidgetsQuery,
           response: { 200: Type.Ref(WidgetPageSchema), 404: Type.Ref(ErrorSchema) },
@@ -86,15 +89,16 @@ export class WidgetController implements Controller {
       },
     );
 
-    // Static `/reorder` must be declared before the `:id` routes so it is not
-    // swallowed by the param route (find-my-way prefers static, but be explicit).
+    // Static `/reorder` and `/layout` must be declared before the `:id` routes so
+    // they are not swallowed by the param route (find-my-way prefers static, but
+    // be explicit).
     app.put(
       `${BASE}/reorder`,
       {
         schema: {
           operationId: 'reorderWidgets',
           tags: ['widgets'],
-          summary: 'Reorder a dashboard’s widgets',
+          summary: 'Compact a dashboard into the given order, squeezing out holes',
           params: DashboardScopeParams,
           body: Type.Ref(ReorderBody),
           response: { 200: Type.Array(Type.Ref(WidgetSchema)), 404: Type.Ref(ErrorSchema) },
@@ -106,25 +110,30 @@ export class WidgetController implements Controller {
       },
     );
 
-    // Single-widget move for the virtualized grid, which only knows a widget id
-    // and a target index — not the full order. O(1): one row's rank changes.
+    // Drop a widget on a slot. A free run moves it and preserves every other hole;
+    // an occupied slot re-packs the board from that row down.
     app.put(
-      `${BASE}/:id/position`,
+      `${BASE}/:id/place`,
       {
         schema: {
-          operationId: 'moveWidget',
+          operationId: 'placeWidget',
           tags: ['widgets'],
-          summary: 'Move a widget to a target index in the dashboard order',
+          summary: 'Place a widget on a (row, col) slot',
           params: WidgetItemParams,
-          body: Type.Ref(MoveWidgetBody),
-          response: { 200: Type.Ref(WidgetSchema), 404: Type.Ref(ErrorSchema) },
+          body: Type.Ref(PlaceWidgetBody),
+          response: {
+            200: Type.Ref(WidgetSchema),
+            400: Type.Ref(ErrorSchema),
+            404: Type.Ref(ErrorSchema),
+          },
         },
       },
       async (request) => {
-        const widget = await this.service.moveToPosition(
+        const widget = await this.service.place(
           request.params.key,
           request.params.id,
-          request.body.position,
+          request.body.row,
+          request.body.col,
         );
         return toResponse(widget);
       },
@@ -136,7 +145,7 @@ export class WidgetController implements Controller {
         schema: {
           operationId: 'updateWidget',
           tags: ['widgets'],
-          summary: 'Update a widget (title, text, or position)',
+          summary: 'Update a widget (title, text, period, or size)',
           params: WidgetItemParams,
           body: Type.Ref(UpdateWidgetBody),
           response: { 200: Type.Ref(WidgetSchema), 404: Type.Ref(ErrorSchema) },

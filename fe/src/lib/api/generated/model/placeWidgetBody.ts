@@ -6,10 +6,16 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface MoveWidgetBody {
+export interface PlaceWidgetBody {
   /**
-   * Target index in the ordered list
+   * Target row
    * @minimum 0
    */
-  position: number;
+  row: number;
+  /**
+   * Target start column
+   * @minimum 0
+   * @maximum 2
+   */
+  col: number;
 }

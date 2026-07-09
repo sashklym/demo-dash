@@ -19,6 +19,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { WidgetCard } from './WidgetCard';
 import type { MoveTarget, WidgetMoveActions } from './WidgetMoveMenu';
+import { cn } from '@/lib/utils';
+import { slotClass } from '@/lib/widget-slot';
 import type { Widget } from '@/lib/api/generated/model';
 
 function SortableWidgetCard({
@@ -49,16 +51,20 @@ function SortableWidgetCard({
     </button>
   );
   return (
-    <div ref={setNodeRef} style={style} id={`widget-card-${widget.id}`}>
+    <div ref={setNodeRef} style={style} id={`widget-card-${widget.id}`} className={cn(slotClass(widget))}>
       <WidgetCard dashboardKey={dashboardKey} widget={widget} dragHandle={handle} moveActions={moveActions} />
     </div>
   );
 }
 
 /**
- * Draggable grid for normal-sized dashboards. Every card is mounted so dnd-kit
- * can compute drop targets; above a threshold WidgetGrid switches to the
- * virtualized grid instead (which can't support drag-to-reorder).
+ * Draggable grid for normal-sized dashboards. Every card is mounted so dnd-kit can
+ * compute drop targets; above a row threshold WidgetGrid switches to the virtualized
+ * grid instead (which can't support drag-to-reorder).
+ *
+ * Cards carry their stored slot as `col-span` / `col-start` classes, so at `lg` the
+ * board renders exactly the rows the server stored — holes included. Dropping a card
+ * sends the full order to `reorder`, which compacts the board and squeezes holes out.
  */
 export function SortableWidgetGrid({
   dashboardKey,
@@ -71,7 +77,7 @@ export function SortableWidgetGrid({
 }: {
   dashboardKey: string;
   items: Widget[];
-  onMove: (id: string, index: number, target: MoveTarget) => void;
+  onMove: (ordered: Widget[], id: string, index: number, target: MoveTarget) => void;
   applyOrder: (orderedIds: string[]) => void;
   movePending: boolean;
   scrollToId: string | null;
@@ -84,6 +90,7 @@ export function SortableWidgetGrid({
 
   // Scroll a freshly-added widget into view once it renders (the list re-fetches
   // after the create mutation, so the node may not exist on the first effect run).
+  // First fit places a new widget in the earliest gap, so this can scroll *up*.
   // The add menu is a Radix dropdown whose close restores focus to its trigger and
   // briefly locks scrolling — a smooth scroll fired in that window gets dropped, so
   // we defer one frame and scroll instantly.
@@ -109,14 +116,14 @@ export function SortableWidgetGrid({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={items.map((w) => w.id)} strategy={rectSortingStrategy}>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {items.map((widget, index) => (
             <SortableWidgetCard
               key={widget.id}
               dashboardKey={dashboardKey}
               widget={widget}
               moveActions={{
-                onMove: (target) => onMove(widget.id, index, target),
+                onMove: (target) => onMove(items, widget.id, index, target),
                 isFirst: index === 0,
                 isLast: index === items.length - 1,
                 isPending: movePending,

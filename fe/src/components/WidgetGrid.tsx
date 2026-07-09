@@ -6,51 +6,46 @@ import { VirtualWidgetGrid } from './VirtualWidgetGrid';
 import { WidgetGridSkeleton } from './WidgetGridSkeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useMove, useReorder, useWidgetsPage } from '@/hooks/use-widgets';
-import type { MoveTarget } from './WidgetMoveMenu';
+import { CHUNK_ROWS, usePlace, useReorder, useWidgetChunk } from '@/hooks/use-widgets';
+import { moveTargetSlot, type MoveTarget } from '@/lib/widget-slot';
+import type { Widget } from '@/lib/api/generated/model';
 
-// Above this many widgets, drag-to-reorder (which needs every card mounted) gives
-// way to a virtualized grid that only renders on-screen rows and lazily loads
-// their pages. Below it, the whole board fits in the first page and the draggable
-// grid stays — reordering matters more than virtualization when there are few.
-// Must be ≤ PAGE_SIZE so a non-virtualized board is fully covered by page 0.
-const VIRTUALIZE_THRESHOLD = 60;
+// Above this many *rows*, drag-to-reorder (which needs every card mounted) gives
+// way to a virtualized grid that only renders on-screen rows and lazily loads their
+// chunks. Must be ≤ CHUNK_ROWS so a non-virtualized board is covered by chunk 0.
+const VIRTUALIZE_ROW_THRESHOLD = CHUNK_ROWS;
 
 export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
-  const page = useWidgetsPage(dashboardKey, 0);
+  const chunk = useWidgetChunk(dashboardKey, 0);
   const reorder = useReorder(dashboardKey);
-  const move = useMove(dashboardKey);
+  const place = usePlace(dashboardKey);
   const [scrollToId, setScrollToId] = useState<string | null>(null);
 
-  if (page.isPending) {
+  if (chunk.isPending) {
     return <WidgetGridSkeleton />;
   }
 
-  if (page.isError) {
+  if (chunk.isError) {
     return (
       <Card className="flex flex-col items-center gap-3 p-10 text-center">
         <p className="text-muted-foreground">Couldn’t load widgets.</p>
-        <Button variant="outline" onClick={() => page.refetch()}>
+        <Button variant="outline" onClick={() => chunk.refetch()}>
           Retry
         </Button>
       </Card>
     );
   }
 
-  const total = page.data.total;
-  const firstPage = page.data.items;
-  const virtualized = total > VIRTUALIZE_THRESHOLD;
-  const movePending = move.isPending || reorder.isPending;
+  const { total, totalRows, items: firstChunk } = chunk.data;
+  const virtualized = totalRows > VIRTUALIZE_ROW_THRESHOLD;
+  const movePending = place.isPending || reorder.isPending;
 
   const applyOrder = (orderedIds: string[]) => reorder.mutate({ key: dashboardKey, data: { orderedIds } });
 
-  // Resolve a start/prev/next/end action against the widget's current index and
-  // the total, then move it to that absolute index (server rewrites one rank).
-  function moveWidget(id: string, index: number, target: MoveTarget) {
-    const to =
-      target === 'start' ? 0 : target === 'end' ? total - 1 : target === 'prev' ? index - 1 : index + 1;
-    if (to < 0 || to >= total || to === index) return;
-    move.mutate({ key: dashboardKey, id, data: { position: to } });
+  function moveWidget(ordered: Widget[], id: string, index: number, target: MoveTarget) {
+    const slot = moveTargetSlot(ordered, index, target, totalRows);
+    if (!slot) return;
+    place.mutate({ key: dashboardKey, id, data: slot });
   }
 
   return (
@@ -76,7 +71,7 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
       ) : virtualized ? (
         <VirtualWidgetGrid
           dashboardKey={dashboardKey}
-          total={total}
+          totalRows={totalRows}
           onMove={moveWidget}
           movePending={movePending}
           scrollToId={scrollToId}
@@ -85,7 +80,7 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
       ) : (
         <SortableWidgetGrid
           dashboardKey={dashboardKey}
-          items={firstPage}
+          items={firstChunk}
           onMove={moveWidget}
           applyOrder={applyOrder}
           movePending={movePending}

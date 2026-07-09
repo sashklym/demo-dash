@@ -16,4 +16,10 @@ export interface UpdateWidgetBody {
   title?: string;
   text?: UpdateWidgetBodyText;
   period?: Period;
+  /**
+   * Column span, 1–3
+   * @minimum 1
+   * @maximum 3
+   */
+  size?: number;
 }

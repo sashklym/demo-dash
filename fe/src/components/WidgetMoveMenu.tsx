@@ -6,8 +6,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import type { MoveTarget } from '@/lib/widget-slot';
 
-export type MoveTarget = 'start' | 'prev' | 'next' | 'end';
+export type { MoveTarget };
 
 export type WidgetMoveActions = {
   onMove: (target: MoveTarget) => void;

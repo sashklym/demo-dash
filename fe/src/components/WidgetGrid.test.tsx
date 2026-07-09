@@ -2,17 +2,18 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Widget } from '@/lib/api/generated/model';
 
-const { useWidgetsPage, useWidgetWindow } = vi.hoisted(() => ({
-  useWidgetsPage: vi.fn(),
-  useWidgetWindow: vi.fn(),
+const { useWidgetChunk, useWidgetRowWindow } = vi.hoisted(() => ({
+  useWidgetChunk: vi.fn(),
+  useWidgetRowWindow: vi.fn(),
 }));
 vi.mock('@/hooks/use-widgets', () => ({
-  PAGE_SIZE: 60,
-  useWidgetsPage,
-  useWidgetWindow,
+  CHUNK_ROWS: 20,
+  useWidgetChunk,
+  useWidgetRowWindow,
   useAddWidget: () => ({ mutate: vi.fn(), isPending: false }),
   useReorder: () => ({ mutate: vi.fn(), isPending: false }),
-  useMove: () => ({ mutate: vi.fn(), isPending: false }),
+  usePlace: () => ({ mutate: vi.fn(), isPending: false }),
+  useEditWidget: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('./WidgetCard', () => ({
   WidgetCard: ({ widget }: { widget: { title: string } }) => <div data-testid="widget">{widget.title}</div>,
@@ -20,62 +21,79 @@ vi.mock('./WidgetCard', () => ({
 
 import { WidgetGrid } from './WidgetGrid';
 
-const widget = (i: number): Widget => ({
+/** A size-1 widget at a given reading position, three to a row. */
+const widget = (i: number, over: Partial<Widget> = {}): Widget => ({
   id: String(i),
   type: 'line',
-  rank: `a${i}`,
+  row: Math.floor(i / 3),
+  col: i % 3,
+  size: 1,
   title: `W${i}`,
   text: null,
   period: 'month',
+  ...over,
 });
 
-/** A resolved first-page query result. */
-const page = (items: Widget[], total = items.length) => ({
+/** A resolved chunk-0 query result. */
+const chunk = (items: Widget[], total = items.length, totalRows = Math.ceil(total / 3)) => ({
   isPending: false,
   isError: false,
-  data: { items, total, offset: 0, limit: 60 },
+  data: { items, total, totalRows, fromRow: 0, toRow: 19 },
 });
 
 describe('WidgetGrid', () => {
   beforeEach(() => {
-    useWidgetsPage.mockReset();
-    // By default the virtual grid can resolve every index (tests that need it override).
-    useWidgetWindow.mockImplementation(() => {
-      const map = new Map<number, Widget>();
-      for (let i = 0; i < 1000; i++) map.set(i, widget(i));
-      return map;
+    useWidgetChunk.mockReset();
+    // By default the virtual grid can resolve every row (tests that need it override).
+    useWidgetRowWindow.mockImplementation(() => {
+      const byRow = new Map<number, Widget[]>();
+      for (let i = 0; i < 3000; i++) {
+        const w = widget(i);
+        const row = byRow.get(w.row);
+        if (row) row.push(w);
+        else byRow.set(w.row, [w]);
+      }
+      return byRow;
     });
   });
 
   it('shows skeletons while loading', () => {
-    useWidgetsPage.mockReturnValue({ isPending: true });
+    useWidgetChunk.mockReturnValue({ isPending: true });
     const { container } = render(<WidgetGrid dashboardKey="k" />);
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
   });
 
   it('shows the empty state when there are no widgets', () => {
-    useWidgetsPage.mockReturnValue(page([], 0));
+    useWidgetChunk.mockReturnValue(chunk([], 0, 0));
     render(<WidgetGrid dashboardKey="k" />);
     expect(screen.getByText(/your dashboard is empty/i)).toBeInTheDocument();
   });
 
   it('renders one card per widget', () => {
-    useWidgetsPage.mockReturnValue(page([widget(1), widget(2)]));
+    useWidgetChunk.mockReturnValue(chunk([widget(0), widget(1)]));
     render(<WidgetGrid dashboardKey="k" />);
     expect(screen.getAllByTestId('widget')).toHaveLength(2);
   });
 
-  it('virtualizes large dashboards — renders far fewer cards than the total', () => {
+  it('virtualizes boards past the row threshold — renders far fewer cards than the total', () => {
     const items = Array.from({ length: 60 }, (_, i) => widget(i));
-    useWidgetsPage.mockReturnValue(page(items, 300));
+    useWidgetChunk.mockReturnValue(chunk(items, 900, 300));
     render(<WidgetGrid dashboardKey="k" />);
     const rendered = screen.getAllByTestId('widget');
     expect(rendered.length).toBeGreaterThan(0);
-    expect(rendered.length).toBeLessThan(300);
+    expect(rendered.length).toBeLessThan(900);
+  });
+
+  it('keeps the draggable grid at exactly the row threshold', () => {
+    const items = Array.from({ length: 60 }, (_, i) => widget(i));
+    useWidgetChunk.mockReturnValue(chunk(items, 60, 20));
+    render(<WidgetGrid dashboardKey="k" />);
+    // Not virtualized: every widget in chunk 0 is mounted.
+    expect(screen.getAllByTestId('widget')).toHaveLength(60);
   });
 
   it('shows an error state with a retry button', () => {
-    useWidgetsPage.mockReturnValue({ isPending: false, isError: true, refetch: vi.fn() });
+    useWidgetChunk.mockReturnValue({ isPending: false, isError: true, refetch: vi.fn() });
     render(<WidgetGrid dashboardKey="k" />);
     expect(screen.getByText(/couldn.t load widgets/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();

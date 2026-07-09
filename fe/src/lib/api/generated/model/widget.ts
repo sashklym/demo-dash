@@ -12,8 +12,16 @@ import type { Period } from './period';
 export interface Widget {
   id: string;
   type: WidgetType;
-  /** Fractional order key; widgets sort by this ascending */
-  rank: string;
+  /** Row on the 3-column grid; reading order is (row, col) */
+  row: number;
+  /** Start column, 0-based; col + size <= 3 */
+  col: number;
+  /**
+   * Column span, 1–3
+   * @minimum 1
+   * @maximum 3
+   */
+  size: number;
   title: string;
   /** Body of a text widget; null for charts */
   text: WidgetText;

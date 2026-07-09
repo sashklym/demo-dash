@@ -4,17 +4,20 @@ import { WidgetCard } from './WidgetCard';
 import type { MoveTarget } from './WidgetMoveMenu';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useColumnCount } from '@/hooks/use-column-count';
-import { PAGE_SIZE, useWidgetWindow } from '@/hooks/use-widgets';
+import { cn } from '@/lib/utils';
+import { slotClass } from '@/lib/widget-slot';
+import { CHUNK_ROWS, useWidgetRowWindow } from '@/hooks/use-widgets';
+import type { Widget } from '@/lib/api/generated/model';
 
-// Cards are a fixed height (`h-[360px]` in WidgetCard) with a 16px grid gap, so
-// every row is exactly this tall — the virtualizer needs no dynamic measurement.
+// A row is one card tall at `lg`, where the stored 3-column layout is honoured. On
+// narrower viewports a row wraps and grows, so the virtualizer measures rather than
+// assumes — this is only the initial estimate.
 const CARD_HEIGHT = 360;
 const ROW_GAP = 16;
 const ROW_HEIGHT = CARD_HEIGHT + ROW_GAP;
 
-/** Placeholder for an on-screen widget whose page hasn't arrived yet. */
-function WidgetCardSkeleton() {
+/** Placeholder for an on-screen row whose chunk hasn't arrived yet. */
+function WidgetRowSkeleton() {
   return (
     <Card className="flex h-[360px] flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b p-4">
@@ -29,34 +32,35 @@ function WidgetCardSkeleton() {
 }
 
 /**
- * Windowed grid for large dashboards: only the rows near the viewport are
- * mounted, and only the widget *pages* overlapping that window are fetched. A
- * dashboard with thousands of widgets renders a couple dozen cards and holds a
- * couple of pages in memory at a time; the rest are skeletons until scrolled to.
+ * Windowed grid for large dashboards: only the rows near the viewport are mounted,
+ * and only the row *chunks* overlapping that window are fetched.
  *
- * Reordering is intentionally absent here (see WidgetGrid): dnd-kit needs every
- * card mounted to compute drop targets, which defeats virtualization. The move
- * menu (start / up / down / end) drives the O(1) move endpoint instead.
+ * The virtualizer's unit is the server's own row, which is why no index arithmetic
+ * appears here: `totalRows` sizes the scrollbar, and each mounted row renders the
+ * widgets the API says are in it. Rows are their own CSS grid, so below `lg` a row
+ * wraps and grows taller — hence `measureElement`.
+ *
+ * Reordering is intentionally absent (see WidgetGrid): dnd-kit needs every card
+ * mounted to compute drop targets, which defeats virtualization. The move menu
+ * (start / up / down / end) drives the `place` endpoint instead.
  */
 export function VirtualWidgetGrid({
   dashboardKey,
-  total,
+  totalRows,
   onMove,
   movePending,
   scrollToId,
   onScrollHandled,
 }: {
   dashboardKey: string;
-  total: number;
-  onMove: (id: string, index: number, target: MoveTarget) => void;
+  totalRows: number;
+  onMove: (ordered: Widget[], id: string, index: number, target: MoveTarget) => void;
   movePending: boolean;
   scrollToId: string | null;
   onScrollHandled: () => void;
 }) {
-  const cols = useColumnCount();
   const parentRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
-  const rowCount = Math.ceil(total / cols);
 
   // The window scrolls the whole document, so the virtualizer needs the list's
   // offset from the top of the page to know which rows are on screen.
@@ -65,7 +69,7 @@ export function VirtualWidgetGrid({
   }, []);
 
   const virtualizer = useWindowVirtualizer({
-    count: rowCount,
+    count: totalRows,
     estimateSize: () => ROW_HEIGHT,
     overscan: 3,
     scrollMargin,
@@ -75,68 +79,77 @@ export function VirtualWidgetGrid({
   const firstRow = virtualRows[0]?.index ?? 0;
   const lastRow = virtualRows[virtualRows.length - 1]?.index ?? 0;
 
-  // Which widget pages overlap the visible rows? Only those get fetched.
-  const pageIndices = useMemo(() => {
-    const firstItem = firstRow * cols;
-    const lastItem = Math.min(total - 1, lastRow * cols + cols - 1);
-    const pages: number[] = [];
-    for (let p = Math.floor(firstItem / PAGE_SIZE); p <= Math.floor(lastItem / PAGE_SIZE); p++) {
-      pages.push(p);
+  // Which row chunks overlap the visible rows? Only those get fetched.
+  const chunks = useMemo(() => {
+    const list: number[] = [];
+    for (let c = Math.floor(firstRow / CHUNK_ROWS); c <= Math.floor(lastRow / CHUNK_ROWS); c++) {
+      list.push(c);
     }
-    return pages;
-  }, [firstRow, lastRow, cols, total]);
+    return list;
+  }, [firstRow, lastRow]);
 
-  const byIndex = useWidgetWindow(dashboardKey, pageIndices);
+  const byRow = useWidgetRowWindow(dashboardKey, chunks);
 
-  // A freshly-added widget is appended, so it lands on the last row — likely
-  // below the fold and unmounted. Drive the virtualizer to the end by index.
+  // Reading order across the rows we hold — enough for the move menu to find a
+  // widget's neighbours.
+  const loaded = useMemo(
+    () => [...byRow.entries()].sort(([a], [b]) => a - b).flatMap(([, widgets]) => widgets),
+    [byRow],
+  );
+
+  // A new widget takes the first free slot, which may be anywhere on the board.
+  // Drive the virtualizer to its row once the refetched chunk says where it landed.
   useEffect(() => {
     if (!scrollToId) return;
-    virtualizer.scrollToIndex(rowCount - 1, { align: 'center' });
+    const target = loaded.find((w) => w.id === scrollToId);
+    if (!target) return;
+    virtualizer.scrollToIndex(target.row, { align: 'center' });
     onScrollHandled();
-  }, [scrollToId, rowCount, virtualizer, onScrollHandled]);
+  }, [scrollToId, loaded, virtualizer, onScrollHandled]);
 
   return (
     <div ref={parentRef}>
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
         {virtualRows.map((row) => {
-          const start = row.index * cols;
+          const widgets = byRow.get(row.index);
           return (
             <div
               key={row.key}
               data-index={row.index}
-              className="grid gap-4"
+              ref={virtualizer.measureElement}
+              className="grid grid-cols-1 gap-4 pb-4 md:grid-cols-2 lg:grid-cols-3"
               style={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
                 width: '100%',
-                height: CARD_HEIGHT,
-                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
                 transform: `translateY(${row.start - virtualizer.options.scrollMargin}px)`,
               }}
             >
-              {Array.from({ length: Math.min(cols, total - start) }, (_, colIndex) => {
-                const index = start + colIndex;
-                const widget = byIndex.get(index);
-                if (!widget) {
-                  return <WidgetCardSkeleton key={index} />;
-                }
-                return (
-                  <div key={widget.id} id={`widget-card-${widget.id}`}>
+              {widgets ? (
+                widgets.map((widget) => (
+                  <div key={widget.id} id={`widget-card-${widget.id}`} className={cn(slotClass(widget))}>
                     <WidgetCard
                       dashboardKey={dashboardKey}
                       widget={widget}
                       moveActions={{
-                        onMove: (target) => onMove(widget.id, index, target),
-                        isFirst: index === 0,
-                        isLast: index === total - 1,
+                        onMove: (target) =>
+                          onMove(
+                            loaded,
+                            widget.id,
+                            loaded.findIndex((w) => w.id === widget.id),
+                            target,
+                          ),
+                        isFirst: widget.row === 0 && widget.col === 0,
+                        isLast: widget.row === totalRows - 1 && widget === widgets[widgets.length - 1],
                         isPending: movePending,
                       }}
                     />
                   </div>
-                );
-              })}
+                ))
+              ) : (
+                <WidgetRowSkeleton />
+              )}
             </div>
           );
         })}
