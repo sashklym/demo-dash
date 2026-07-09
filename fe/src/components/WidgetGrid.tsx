@@ -7,7 +7,7 @@ import { WidgetGridSkeleton } from './WidgetGridSkeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CHUNK_ROWS, usePlace, useReorder, useWidgetChunk } from '@/hooks/use-widgets';
-import { moveTargetSlot, type MoveTarget } from '@/lib/widget-slot';
+import { moveTargetSlot, type MoveTarget, type Slot } from '@/lib/widget-slot';
 import type { Widget } from '@/lib/api/generated/model';
 
 // Above this many *rows*, drag-to-reorder (which needs every card mounted) gives
@@ -42,10 +42,13 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
 
   const applyOrder = (orderedIds: string[]) => reorder.mutate({ key: dashboardKey, data: { orderedIds } });
 
+  /** Drop a widget on an exact slot — a hole, or the slot of the card it landed on. */
+  const placeAt = (id: string, slot: Slot) => place.mutate({ key: dashboardKey, id, data: slot });
+
   function moveWidget(ordered: Widget[], id: string, index: number, target: MoveTarget) {
     const slot = moveTargetSlot(ordered, index, target, totalRows);
     if (!slot) return;
-    place.mutate({ key: dashboardKey, id, data: slot });
+    placeAt(id, slot);
   }
 
   return (
@@ -82,6 +85,7 @@ export function WidgetGrid({ dashboardKey }: { dashboardKey: string }) {
           dashboardKey={dashboardKey}
           items={firstChunk}
           onMove={moveWidget}
+          onPlace={placeAt}
           applyOrder={applyOrder}
           movePending={movePending}
           scrollToId={scrollToId}
