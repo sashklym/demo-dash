@@ -84,27 +84,90 @@ export function boardCells(items: Widget[]): SlotCell[] {
 
 export type MoveTarget = 'start' | 'prev' | 'next' | 'end';
 
+export interface Slot {
+  row: number;
+  col: number;
+}
+
 /**
- * Resolve a move action against the widget's neighbours in reading order, and
- * return the slot to drop it on — or null when there is nowhere to go.
+ * The furthest-right column a `size`-wide widget may start at. The API rejects a
+ * slot the widget would overflow, and a splice only uses the column as an insert
+ * position, so pulling it back to the last legal start is both safe and faithful.
+ */
+const clampCol = (col: number, size: number): number => Math.min(col, COLUMNS - size);
+
+/** Can this hole host the widget? Its columns are contiguous, so width decides. */
+const fits = (gap: Gap, size: number): boolean => gap.size >= size;
+
+/**
+ * Resolve a move action against the widget's neighbouring *slots* — holes included
+ * — and return the slot to drop it on, or null when there is nowhere to go.
  *
- * `place` splices the widget in *before* the slot's occupant, so "move down" means
- * targeting the widget two ahead: landing after the immediate next one. Past the end
- * of the board, row `totalRows` is a fresh row.
+ * Stepping over slots rather than over widgets is what lets "move up/down" walk a
+ * widget into an adjacent hole instead of skipping past it. A hole too narrow for
+ * the widget is stepped over, as though it weren't there.
+ *
+ * When the neighbour is a widget rather than a hole, the target is that widget's
+ * slot: `place` splices *before* its target, so landing after the next widget means
+ * aiming at whatever cell follows it. Past the end of the board, row `totalRows` is
+ * a fresh row.
  */
 export function moveTargetSlot(
-  ordered: Pick<Widget, 'row' | 'col'>[],
+  ordered: Widget[],
   index: number,
   target: MoveTarget,
   totalRows: number,
-): { row: number; col: number } | null {
-  const end = { row: totalRows, col: 0 };
+): Slot | null {
+  const widget = ordered[index];
+  if (!widget) return null;
+
+  const end: Slot = { row: totalRows, col: 0 };
   if (target === 'start') return { row: 0, col: 0 };
-  if (target === 'end') return end;
-  if (target === 'prev') {
-    const prev = ordered[index - 1];
-    return prev ? { row: prev.row, col: prev.col } : null;
+
+  const cells = boardCells(ordered);
+  const at = cells.findIndex((cell) => cell.kind === 'widget' && cell.widget.id === widget.id);
+  if (at < 0) return null;
+
+  if (target === 'end') {
+    const last = cells[cells.length - 1];
+    // A trailing hole on the last row is the end of the board — no new row needed.
+    if (last?.kind === 'gap' && fits(last.gap, widget.size)) {
+      return { row: last.gap.row, col: last.gap.col };
+    }
+    return end;
   }
-  const after = ordered[index + 2];
-  return after ? { row: after.row, col: after.col } : end;
+
+  if (target === 'prev') {
+    for (let i = at - 1; i >= 0; i--) {
+      const cell = cells[i]!;
+      if (cell.kind === 'widget') {
+        return { row: cell.widget.row, col: clampCol(cell.widget.col, widget.size) };
+      }
+      // Land flush against the widget the hole sits behind.
+      if (fits(cell.gap, widget.size)) {
+        return { row: cell.gap.row, col: cell.gap.col + cell.gap.size - widget.size };
+      }
+    }
+    return null;
+  }
+
+  // 'next' — one slot forward is the hole immediately ahead, when it fits.
+  const ahead = cells[at + 1];
+  if (ahead?.kind === 'gap' && fits(ahead.gap, widget.size)) {
+    return { row: ahead.gap.row, col: ahead.gap.col };
+  }
+
+  // Otherwise land past the next widget: aim at the first slot beyond it.
+  let next = at + 1;
+  while (next < cells.length && cells[next]!.kind === 'gap') next++;
+  if (next >= cells.length) return end;
+
+  for (let i = next + 1; i < cells.length; i++) {
+    const cell = cells[i]!;
+    if (cell.kind === 'widget') {
+      return { row: cell.widget.row, col: clampCol(cell.widget.col, widget.size) };
+    }
+    if (fits(cell.gap, widget.size)) return { row: cell.gap.row, col: cell.gap.col };
+  }
+  return end;
 }

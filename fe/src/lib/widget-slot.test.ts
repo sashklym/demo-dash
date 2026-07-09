@@ -83,8 +83,14 @@ describe('moveTargetSlot', () => {
     expect(moveTargetSlot(ordered, 2, 'start', 2)).toEqual({ row: 0, col: 0 });
   });
 
-  it('sends "end" to a fresh row past the last one', () => {
-    expect(moveTargetSlot(ordered, 0, 'end', 2)).toEqual({ row: 2, col: 0 });
+  // w3 sits alone on row 1, so the board trails a 2-wide hole at (1,1).
+  it('sends "end" to the trailing hole rather than opening a new row', () => {
+    expect(moveTargetSlot(ordered, 0, 'end', 2)).toEqual({ row: 1, col: 1 });
+  });
+
+  it('sends "end" to a fresh row when the last row is full', () => {
+    const full = [widget(0), widget(1), widget(2)];
+    expect(moveTargetSlot(full, 0, 'end', 1)).toEqual({ row: 1, col: 0 });
   });
 
   it('sends "prev" to the previous widget’s slot', () => {
@@ -96,14 +102,45 @@ describe('moveTargetSlot', () => {
   });
 
   // `place` splices in *before* the slot's occupant, so landing after the next
-  // widget means targeting the one two ahead.
+  // widget means targeting the cell beyond it.
   it('sends "next" to the slot two ahead', () => {
     expect(moveTargetSlot(ordered, 0, 'next', 2)).toEqual({ row: 0, col: 2 });
   });
 
-  it('sends "next" past the end when the widget is at or near the last slot', () => {
-    expect(moveTargetSlot(ordered, 2, 'next', 2)).toEqual({ row: 2, col: 0 });
-    expect(moveTargetSlot(ordered, 3, 'next', 2)).toEqual({ row: 2, col: 0 });
+  it('sends "next" into the trailing hole once past the last widget', () => {
+    expect(moveTargetSlot(ordered, 2, 'next', 2)).toEqual({ row: 1, col: 1 });
+  });
+
+  it('sends "next" past the end when the last row has no room', () => {
+    const full = [widget(0), widget(1), widget(2)];
+    expect(moveTargetSlot(full, 1, 'next', 1)).toEqual({ row: 1, col: 0 });
+  });
+
+  describe('holes are move targets', () => {
+    // Row 0: A(0,0) · hole(0,1) · B(0,2). This is the board a delete leaves behind.
+    const holed = [widget(0, { row: 0, col: 0 }), widget(1, { row: 0, col: 2 })];
+
+    it('steps "next" into the hole immediately ahead', () => {
+      expect(moveTargetSlot(holed, 0, 'next', 1)).toEqual({ row: 0, col: 1 });
+    });
+
+    it('steps "prev" into the hole immediately behind, flush against the widget', () => {
+      expect(moveTargetSlot(holed, 1, 'prev', 1)).toEqual({ row: 0, col: 1 });
+    });
+
+    // A 2-wide widget cannot enter a 1-wide hole, so the hole is stepped over.
+    it('steps over a hole too narrow for the widget', () => {
+      const wide = [widget(0, { row: 0, col: 0 }), widget(1, { row: 0, col: 2, size: 1 }), widget(2, { row: 1, col: 0, size: 2 })];
+      // Moving the size-2 widget up skips the 1-wide hole and targets B's slot,
+      // clamped to the last column a 2-wide widget may start at.
+      expect(moveTargetSlot(wide, 2, 'prev', 2)).toEqual({ row: 0, col: 1 });
+    });
+
+    it('lands "prev" flush against the widget inside a wide hole', () => {
+      // Row 0 is just hole(0,0)-(0,1) · B(0,2); B steps back to column 1, not 0.
+      const board = [widget(0, { row: 0, col: 2 })];
+      expect(moveTargetSlot(board, 0, 'prev', 1)).toEqual({ row: 0, col: 1 });
+    });
   });
 
   it('honours a wide widget’s actual slot rather than assuming three per row', () => {
