@@ -8,6 +8,7 @@ import { CreateDashboards1710000000000 } from './migrations/1710000000000-Create
 import { CreateWidgets1710000001000 } from './migrations/1710000001000-CreateWidgets';
 import { AddWidgetPeriod1710000002000 } from './migrations/1710000002000-AddWidgetPeriod';
 import { AddWidgetRank1710000003000 } from './migrations/1710000003000-AddWidgetRank';
+import { AddWidgetRowLayout1710000004000 } from './migrations/1710000004000-AddWidgetRowLayout';
 
 export interface CreateDataSourceOptions {
   /** SQLite file path, or ':memory:' for tests. */
@@ -34,6 +35,7 @@ export function createDataSource(opts: CreateDataSourceOptions): DataSource {
       CreateWidgets1710000001000,
       AddWidgetPeriod1710000002000,
       AddWidgetRank1710000003000,
+      AddWidgetRowLayout1710000004000,
     ],
     synchronize: opts.synchronize ?? false,
     logging: opts.logging ?? false,

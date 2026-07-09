@@ -32,7 +32,7 @@ import type {
   Error,
   GetWidgetDataParams,
   ListWidgetsParams,
-  MoveWidgetBody,
+  PlaceWidgetBody,
   ReorderBody,
   UpdateWidgetBody,
   Widget,
@@ -202,7 +202,7 @@ export function useGetDashboard<TData = Awaited<ReturnType<typeof getDashboard>>
 
 
 /**
- * @summary List a dashboard’s widgets, paged and ordered by rank
+ * @summary List a range of a dashboard’s rows, ordered by (row, col)
  */
 export const listWidgets = (
     key: string,
@@ -280,7 +280,7 @@ export function useListWidgets<TData = Awaited<ReturnType<typeof listWidgets>>, 
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary List a dashboard’s widgets, paged and ordered by rank
+ * @summary List a range of a dashboard’s rows, ordered by (row, col)
  */
 
 export function useListWidgets<TData = Awaited<ReturnType<typeof listWidgets>>, TError = ErrorType<Error>>(
@@ -369,7 +369,7 @@ export const useCreateWidget = <TError = ErrorType<Error>,
     }
     
 /**
- * @summary Reorder a dashboard’s widgets
+ * @summary Compact a dashboard into the given order, squeezing out holes
  */
 export const reorderWidgets = (
     key: string,
@@ -417,7 +417,7 @@ const {mutation: mutationOptions} = options ?
     export type ReorderWidgetsMutationError = ErrorType<Error>
 
     /**
- * @summary Reorder a dashboard’s widgets
+ * @summary Compact a dashboard into the given order, squeezing out holes
  */
 export const useReorderWidgets = <TError = ErrorType<Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderWidgets>>, TError,{key: string;data: BodyType<ReorderBody>}, TContext>, }
@@ -434,30 +434,30 @@ export const useReorderWidgets = <TError = ErrorType<Error>,
     }
     
 /**
- * @summary Move a widget to a target index in the dashboard order
+ * @summary Place a widget on a (row, col) slot
  */
-export const moveWidget = (
+export const placeWidget = (
     key: string,
     id: string,
-    moveWidgetBody: BodyType<MoveWidgetBody>,
+    placeWidgetBody: BodyType<PlaceWidgetBody>,
  ) => {
       
       
       return apiClient<Widget>(
-      {url: `/api/dashboards/${key}/widgets/${id}/position`, method: 'PUT',
+      {url: `/api/dashboards/${key}/widgets/${id}/place`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
-      data: moveWidgetBody
+      data: placeWidgetBody
     },
       );
     }
   
 
 
-export const getMoveWidgetMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveWidget>>, TError,{key: string;id: string;data: BodyType<MoveWidgetBody>}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof moveWidget>>, TError,{key: string;id: string;data: BodyType<MoveWidgetBody>}, TContext> => {
+export const getPlaceWidgetMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeWidget>>, TError,{key: string;id: string;data: BodyType<PlaceWidgetBody>}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof placeWidget>>, TError,{key: string;id: string;data: BodyType<PlaceWidgetBody>}, TContext> => {
 
-const mutationKey = ['moveWidget'];
+const mutationKey = ['placeWidget'];
 const {mutation: mutationOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -467,10 +467,10 @@ const {mutation: mutationOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof moveWidget>>, {key: string;id: string;data: BodyType<MoveWidgetBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof placeWidget>>, {key: string;id: string;data: BodyType<PlaceWidgetBody>}> = (props) => {
           const {key,id,data} = props ?? {};
 
-          return  moveWidget(key,id,data,)
+          return  placeWidget(key,id,data,)
         }
 
         
@@ -478,29 +478,29 @@ const {mutation: mutationOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type MoveWidgetMutationResult = NonNullable<Awaited<ReturnType<typeof moveWidget>>>
-    export type MoveWidgetMutationBody = BodyType<MoveWidgetBody>
-    export type MoveWidgetMutationError = ErrorType<Error>
+    export type PlaceWidgetMutationResult = NonNullable<Awaited<ReturnType<typeof placeWidget>>>
+    export type PlaceWidgetMutationBody = BodyType<PlaceWidgetBody>
+    export type PlaceWidgetMutationError = ErrorType<Error>
 
     /**
- * @summary Move a widget to a target index in the dashboard order
+ * @summary Place a widget on a (row, col) slot
  */
-export const useMoveWidget = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveWidget>>, TError,{key: string;id: string;data: BodyType<MoveWidgetBody>}, TContext>, }
+export const usePlaceWidget = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeWidget>>, TError,{key: string;id: string;data: BodyType<PlaceWidgetBody>}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof moveWidget>>,
+        Awaited<ReturnType<typeof placeWidget>>,
         TError,
-        {key: string;id: string;data: BodyType<MoveWidgetBody>},
+        {key: string;id: string;data: BodyType<PlaceWidgetBody>},
         TContext
       > => {
 
-      const mutationOptions = getMoveWidgetMutationOptions(options);
+      const mutationOptions = getPlaceWidgetMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }
     
 /**
- * @summary Update a widget (title, text, or position)
+ * @summary Update a widget (title, text, period, or size)
  */
 export const updateWidget = (
     key: string,
@@ -549,7 +549,7 @@ const {mutation: mutationOptions} = options ?
     export type UpdateWidgetMutationError = ErrorType<Error>
 
     /**
- * @summary Update a widget (title, text, or position)
+ * @summary Update a widget (title, text, period, or size)
  */
 export const useUpdateWidget = <TError = ErrorType<Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWidget>>, TError,{key: string;id: string;data: BodyType<UpdateWidgetBody>}, TContext>, }

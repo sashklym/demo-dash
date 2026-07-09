@@ -17,12 +17,17 @@ export const PeriodSchema = Type.Unsafe<Period>({
   description: 'day | week | month | year',
 });
 
+/** Column span on the canonical 3-column grid. A size-3 widget fills its row. */
+const SizeSchema = Type.Integer({ minimum: 1, maximum: 3, description: 'Column span, 1–3' });
+
 /** Public widget shape (internal `dashboard_id` and `seed` are never exposed). */
 export const WidgetSchema = Type.Object(
   {
     id: Type.String({ format: 'uuid' }),
     type: Type.Ref(WidgetTypeSchema),
-    rank: Type.String({ description: 'Fractional order key; widgets sort by this ascending' }),
+    row: Type.Integer({ description: 'Row on the 3-column grid; reading order is (row, col)' }),
+    col: Type.Integer({ description: 'Start column, 0-based; col + size <= 3' }),
+    size: SizeSchema,
     title: Type.String(),
     text: Type.Union([Type.String(), Type.Null()], { description: 'Body of a text widget; null for charts' }),
     period: Type.Ref(PeriodSchema),
@@ -30,13 +35,14 @@ export const WidgetSchema = Type.Object(
   { $id: 'Widget' },
 );
 
-/** One page of a dashboard’s widgets, ordered by rank, plus the full count. */
+/** A range of a dashboard’s rows, ordered by (row, col), plus the board’s totals. */
 export const WidgetPageSchema = Type.Object(
   {
     items: Type.Array(Type.Ref(WidgetSchema)),
-    total: Type.Integer({ description: 'Total widgets on the dashboard (across all pages)' }),
-    offset: Type.Integer(),
-    limit: Type.Integer(),
+    total: Type.Integer({ description: 'Total widgets on the dashboard (across all rows)' }),
+    totalRows: Type.Integer({ description: 'Number of rows; sizes the virtualized scrollbar' }),
+    fromRow: Type.Integer(),
+    toRow: Type.Integer(),
   },
   { $id: 'WidgetPage' },
 );
@@ -46,6 +52,7 @@ export const CreateWidgetBody = Type.Object(
     type: Type.Ref(WidgetTypeSchema),
     title: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
     text: Type.Optional(Type.String({ maxLength: 5000, description: 'Initial text (text widgets only)' })),
+    size: Type.Optional(SizeSchema),
   },
   { $id: 'CreateWidgetBody' },
 );
@@ -55,6 +62,7 @@ export const UpdateWidgetBody = Type.Object(
     title: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
     text: Type.Optional(Type.Union([Type.String({ maxLength: 5000 }), Type.Null()])),
     period: Type.Optional(Type.Ref(PeriodSchema)),
+    size: Type.Optional(SizeSchema),
   },
   { $id: 'UpdateWidgetBody' },
 );
@@ -68,12 +76,16 @@ export const ReorderBody = Type.Object(
   { $id: 'ReorderBody' },
 );
 
-/** Move a single widget to a target index in the dashboard order (clamped). */
-export const MoveWidgetBody = Type.Object(
+/**
+ * Drop a widget on a slot. A free run wide enough moves the widget and preserves
+ * every other hole; an occupied slot re-packs the board from that row down.
+ */
+export const PlaceWidgetBody = Type.Object(
   {
-    position: Type.Integer({ minimum: 0, description: 'Target index in the ordered list' }),
+    row: Type.Integer({ minimum: 0, description: 'Target row' }),
+    col: Type.Integer({ minimum: 0, maximum: 2, description: 'Target start column' }),
   },
-  { $id: 'MoveWidgetBody' },
+  { $id: 'PlaceWidgetBody' },
 );
 
 /** One bucket of sentiment counts (Positive / Neutral / Negative mentions). */
@@ -106,7 +118,8 @@ export const ChartDataQuery = Type.Object({
   period: Type.Optional(Type.Ref(PeriodSchema)),
 });
 
+/** A window of rows. `toRow` defaults to a 20-row span and is capped at 100. */
 export const ListWidgetsQuery = Type.Object({
-  offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
-  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 50 })),
+  fromRow: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
+  toRow: Type.Optional(Type.Integer({ minimum: 0 })),
 });

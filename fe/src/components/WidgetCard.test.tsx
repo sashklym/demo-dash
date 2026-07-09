@@ -14,7 +14,7 @@ vi.mock('./TextWidget', () => ({ TextWidget: () => <div data-testid="text-body" 
 
 import { WidgetCard } from './WidgetCard';
 
-const widget: Widget = { id: 'w1', type: 'line', rank: 'a0', title: 'Mentions', text: null, period: 'month' };
+const widget: Widget = { id: 'w1', type: 'line', row: 0, col: 0, size: 1, title: 'Mentions', text: null, period: 'month' };
 
 describe('WidgetCard', () => {
   beforeEach(() => {
@@ -71,5 +71,23 @@ describe('WidgetCard', () => {
     expect(dialog).toHaveTextContent('Mentions');
     // the widget body renders both inline and inside the expanded dialog
     expect(screen.getAllByTestId('chart-body').length).toBeGreaterThan(1);
+  });
+
+  it('resizes the widget to the chosen column span', async () => {
+    render(<WidgetCard dashboardKey="k" widget={widget} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /widget width/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /2 columns/i }));
+
+    expect(edit).toHaveBeenCalledWith({ key: 'k', id: 'w1', data: { size: 2 } });
+  });
+
+  it('does not re-send the size the widget already has', async () => {
+    render(<WidgetCard dashboardKey="k" widget={widget} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /widget width/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /1 column/i }));
+
+    expect(edit).not.toHaveBeenCalled();
   });
 });

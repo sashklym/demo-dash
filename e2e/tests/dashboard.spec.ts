@@ -122,7 +122,8 @@ test('scrolls a newly added widget into view', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/d\/.+/);
 
-  // Fill the dashboard so the grid overflows the viewport.
+  // Nine size-1 widgets fill three rows exactly, leaving no hole — so the tenth
+  // opens a new row at the bottom. (First fit only appends when nothing fits above.)
   for (let i = 0; i < 9; i++) {
     await page.getByRole('button', { name: 'Add widget' }).click();
     await page.getByRole('menuitem', { name: 'Text', exact: true }).click();
@@ -134,6 +135,37 @@ test('scrolls a newly added widget into view', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Bar chart', exact: true }).click();
   await expect(page.getByText('10 widgets')).toBeVisible();
   await expect(page.getByTestId('widget-bar')).toBeInViewport();
+});
+
+test('scrolls up to a new widget that first-fit placed above the fold', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/d\/.+/);
+
+  // Four full rows of text widgets, so row 0 sits well above the fold.
+  for (let i = 0; i < 12; i++) {
+    await page.getByRole('button', { name: 'Add widget' }).click();
+    await page.getByRole('menuitem', { name: 'Text', exact: true }).click();
+  }
+  await expect(page.getByText('12 widgets')).toBeVisible();
+
+  // Punch a hole in row 0 by deleting its middle widget. A delete leaves the gap
+  // open — nothing below reflows into it.
+  await page.locator('[data-testid^="widget-"]').nth(1).getByRole('button', { name: 'Delete widget' }).click();
+  await page.getByRole('button', { name: /^delete$/i }).click();
+  await expect(page.getByText('11 widgets')).toBeVisible();
+
+  // Scroll to the bottom, then add a bar chart: first fit drops it in row 0's hole,
+  // far above the viewport — the grid must scroll back *up* to it.
+  await page.evaluate(() => window.scrollTo(0, document.scrollingElement!.scrollHeight));
+  await page.getByRole('button', { name: 'Add widget' }).click();
+  await page.getByRole('menuitem', { name: 'Bar chart', exact: true }).click();
+  await expect(page.getByText('12 widgets')).toBeVisible();
+
+  const bar = page.getByTestId('widget-bar');
+  await expect(bar).toBeInViewport();
+  // It really did land in row 0's gap, beside the two survivors.
+  const siblings = page.locator('[data-testid^="widget-"]');
+  await expect(siblings.nth(1)).toHaveAttribute('data-testid', 'widget-bar');
 });
 
 test('charts show the sentiment series and persist the selected period', async ({ page }) => {

@@ -10,10 +10,9 @@ export type ListWidgetsParams = {
 /**
  * @minimum 0
  */
-offset?: number;
+fromRow?: number;
 /**
- * @minimum 1
- * @maximum 200
+ * @minimum 0
  */
-limit?: number;
+toRow?: number;
 };

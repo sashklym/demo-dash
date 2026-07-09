@@ -78,7 +78,9 @@
         "required": [
           "id",
           "type",
-          "rank",
+          "row",
+          "col",
+          "size",
           "title",
           "text",
           "period"
@@ -91,9 +93,19 @@
           "type": {
             "$ref": "#/components/schemas/WidgetType"
           },
-          "rank": {
-            "description": "Fractional order key; widgets sort by this ascending",
-            "type": "string"
+          "row": {
+            "description": "Row on the 3-column grid; reading order is (row, col)",
+            "type": "integer"
+          },
+          "col": {
+            "description": "Start column, 0-based; col + size <= 3",
+            "type": "integer"
+          },
+          "size": {
+            "minimum": 1,
+            "maximum": 3,
+            "description": "Column span, 1–3",
+            "type": "integer"
           },
           "title": {
             "type": "string"
@@ -119,8 +131,9 @@
         "required": [
           "items",
           "total",
-          "offset",
-          "limit"
+          "totalRows",
+          "fromRow",
+          "toRow"
         ],
         "properties": {
           "items": {
@@ -130,13 +143,17 @@
             }
           },
           "total": {
-            "description": "Total widgets on the dashboard (across all pages)",
+            "description": "Total widgets on the dashboard (across all rows)",
             "type": "integer"
           },
-          "offset": {
+          "totalRows": {
+            "description": "Number of rows; sizes the virtualized scrollbar",
             "type": "integer"
           },
-          "limit": {
+          "fromRow": {
+            "type": "integer"
+          },
+          "toRow": {
             "type": "integer"
           }
         }
@@ -159,6 +176,12 @@
             "maxLength": 5000,
             "description": "Initial text (text widgets only)",
             "type": "string"
+          },
+          "size": {
+            "minimum": 1,
+            "maximum": 3,
+            "description": "Column span, 1–3",
+            "type": "integer"
           }
         }
       },
@@ -183,6 +206,12 @@
           },
           "period": {
             "$ref": "#/components/schemas/Period"
+          },
+          "size": {
+            "minimum": 1,
+            "maximum": 3,
+            "description": "Column span, 1–3",
+            "type": "integer"
           }
         }
       },
@@ -202,15 +231,22 @@
           }
         }
       },
-      "MoveWidgetBody": {
+      "PlaceWidgetBody": {
         "type": "object",
         "required": [
-          "position"
+          "row",
+          "col"
         ],
         "properties": {
-          "position": {
+          "row": {
             "minimum": 0,
-            "description": "Target index in the ordered list",
+            "description": "Target row",
+            "type": "integer"
+          },
+          "col": {
+            "minimum": 0,
+            "maximum": 2,
+            "description": "Target start column",
             "type": "integer"
           }
         }
@@ -335,7 +371,7 @@
     "/api/dashboards/{key}/widgets": {
       "get": {
         "operationId": "listWidgets",
-        "summary": "List a dashboard’s widgets, paged and ordered by rank",
+        "summary": "List a range of a dashboard’s rows, ordered by (row, col)",
         "tags": [
           "widgets"
         ],
@@ -347,18 +383,16 @@
               "type": "integer"
             },
             "in": "query",
-            "name": "offset",
+            "name": "fromRow",
             "required": false
           },
           {
             "schema": {
-              "minimum": 1,
-              "maximum": 200,
-              "default": 50,
+              "minimum": 0,
               "type": "integer"
             },
             "in": "query",
-            "name": "limit",
+            "name": "toRow",
             "required": false
           },
           {
@@ -450,7 +484,7 @@
     "/api/dashboards/{key}/widgets/reorder": {
       "put": {
         "operationId": "reorderWidgets",
-        "summary": "Reorder a dashboard’s widgets",
+        "summary": "Compact a dashboard into the given order, squeezing out holes",
         "tags": [
           "widgets"
         ],
@@ -503,10 +537,10 @@
         }
       }
     },
-    "/api/dashboards/{key}/widgets/{id}/position": {
+    "/api/dashboards/{key}/widgets/{id}/place": {
       "put": {
-        "operationId": "moveWidget",
-        "summary": "Move a widget to a target index in the dashboard order",
+        "operationId": "placeWidget",
+        "summary": "Place a widget on a (row, col) slot",
         "tags": [
           "widgets"
         ],
@@ -515,7 +549,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MoveWidgetBody"
+                "$ref": "#/components/schemas/PlaceWidgetBody"
               }
             }
           }
@@ -553,6 +587,16 @@
               }
             }
           },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Default Response",
             "content": {
@@ -569,7 +613,7 @@
     "/api/dashboards/{key}/widgets/{id}": {
       "patch": {
         "operationId": "updateWidget",
-        "summary": "Update a widget (title, text, or position)",
+        "summary": "Update a widget (title, text, period, or size)",
         "tags": [
           "widgets"
         ],

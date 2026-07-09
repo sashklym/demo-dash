@@ -9,8 +9,10 @@ import type { Widget } from './widget';
 
 export interface WidgetPage {
   items: Widget[];
-  /** Total widgets on the dashboard (across all pages) */
+  /** Total widgets on the dashboard (across all rows) */
   total: number;
-  offset: number;
-  limit: number;
+  /** Number of rows; sizes the virtualized scrollbar */
+  totalRows: number;
+  fromRow: number;
+  toRow: number;
 }
