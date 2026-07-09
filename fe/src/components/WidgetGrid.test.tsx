@@ -92,6 +92,22 @@ describe('WidgetGrid', () => {
     expect(screen.getAllByTestId('widget')).toHaveLength(60);
   });
 
+  it('draws a hole in a row as an empty slot', () => {
+    // Row 0 holds columns 0 and 2 — the middle column is a hole.
+    const items = [widget(0, { row: 0, col: 0 }), widget(2, { row: 0, col: 2 })];
+    useWidgetChunk.mockReturnValue(chunk(items, 2, 1));
+    render(<WidgetGrid dashboardKey="k" />);
+    expect(screen.getAllByTestId('widget')).toHaveLength(2);
+    expect(screen.getAllByTestId('empty-slot')).toHaveLength(1);
+  });
+
+  it('draws no empty slot when every row is full', () => {
+    const items = [widget(0), widget(1), widget(2)];
+    useWidgetChunk.mockReturnValue(chunk(items, 3, 1));
+    render(<WidgetGrid dashboardKey="k" />);
+    expect(screen.queryByTestId('empty-slot')).not.toBeInTheDocument();
+  });
+
   it('shows an error state with a retry button', () => {
     useWidgetChunk.mockReturnValue({ isPending: false, isError: true, refetch: vi.fn() });
     render(<WidgetGrid dashboardKey="k" />);

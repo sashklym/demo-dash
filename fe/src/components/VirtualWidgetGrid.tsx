@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
+import { EmptySlot } from './EmptySlot';
 import { WidgetCard } from './WidgetCard';
 import type { MoveTarget } from './WidgetMoveMenu';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { slotClass } from '@/lib/widget-slot';
+import { rowCells, slotClass } from '@/lib/widget-slot';
 import { CHUNK_ROWS, useWidgetRowWindow } from '@/hooks/use-widgets';
 import type { Widget } from '@/lib/api/generated/model';
 
@@ -127,26 +128,33 @@ export function VirtualWidgetGrid({
               }}
             >
               {widgets ? (
-                widgets.map((widget) => (
-                  <div key={widget.id} id={`widget-card-${widget.id}`} className={cn(slotClass(widget))}>
-                    <WidgetCard
-                      dashboardKey={dashboardKey}
-                      widget={widget}
-                      moveActions={{
-                        onMove: (target) =>
-                          onMove(
-                            loaded,
-                            widget.id,
-                            loaded.findIndex((w) => w.id === widget.id),
-                            target,
-                          ),
-                        isFirst: widget.row === 0 && widget.col === 0,
-                        isLast: widget.row === totalRows - 1 && widget === widgets[widgets.length - 1],
-                        isPending: movePending,
-                      }}
-                    />
-                  </div>
-                ))
+                rowCells(widgets).map((cell) => {
+                  if (cell.kind === 'gap') {
+                    const { row: gapRow, col } = cell.gap;
+                    return <EmptySlot key={`gap-${gapRow}-${col}`} gap={cell.gap} />;
+                  }
+                  const { widget } = cell;
+                  return (
+                    <div key={widget.id} id={`widget-card-${widget.id}`} className={cn(slotClass(widget))}>
+                      <WidgetCard
+                        dashboardKey={dashboardKey}
+                        widget={widget}
+                        moveActions={{
+                          onMove: (target) =>
+                            onMove(
+                              loaded,
+                              widget.id,
+                              loaded.findIndex((w) => w.id === widget.id),
+                              target,
+                            ),
+                          isFirst: widget.row === 0 && widget.col === 0,
+                          isLast: widget.row === totalRows - 1 && widget === widgets[widgets.length - 1],
+                          isPending: movePending,
+                        }}
+                      />
+                    </div>
+                  );
+                })
               ) : (
                 <WidgetRowSkeleton />
               )}

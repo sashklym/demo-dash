@@ -17,10 +17,11 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
+import { EmptySlot } from './EmptySlot';
 import { WidgetCard } from './WidgetCard';
 import type { MoveTarget, WidgetMoveActions } from './WidgetMoveMenu';
 import { cn } from '@/lib/utils';
-import { slotClass } from '@/lib/widget-slot';
+import { boardCells, slotClass } from '@/lib/widget-slot';
 import type { Widget } from '@/lib/api/generated/model';
 
 function SortableWidgetCard({
@@ -113,23 +114,34 @@ export function SortableWidgetGrid({
     applyOrder(orderedIds);
   }
 
+  // `items` is already in reading order, so a widget's index is its move-menu index.
+  const indexById = new Map(items.map((widget, index) => [widget.id, index]));
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={items.map((w) => w.id)} strategy={rectSortingStrategy}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((widget, index) => (
-            <SortableWidgetCard
-              key={widget.id}
-              dashboardKey={dashboardKey}
-              widget={widget}
-              moveActions={{
-                onMove: (target) => onMove(items, widget.id, index, target),
-                isFirst: index === 0,
-                isLast: index === items.length - 1,
-                isPending: movePending,
-              }}
-            />
-          ))}
+          {boardCells(items).map((cell) => {
+            if (cell.kind === 'gap') {
+              const { row, col } = cell.gap;
+              return <EmptySlot key={`gap-${row}-${col}`} gap={cell.gap} />;
+            }
+            const { widget } = cell;
+            const index = indexById.get(widget.id)!;
+            return (
+              <SortableWidgetCard
+                key={widget.id}
+                dashboardKey={dashboardKey}
+                widget={widget}
+                moveActions={{
+                  onMove: (target) => onMove(items, widget.id, index, target),
+                  isFirst: index === 0,
+                  isLast: index === items.length - 1,
+                  isPending: movePending,
+                }}
+              />
+            );
+          })}
         </div>
       </SortableContext>
     </DndContext>

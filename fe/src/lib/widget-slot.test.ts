@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moveTargetSlot, slotClass } from './widget-slot';
+import { boardCells, moveTargetSlot, rowCells, slotClass } from './widget-slot';
 import type { Widget } from '@/lib/api/generated/model';
 
 /** A size-1 widget at a given reading position, three to a row. */
@@ -28,6 +28,50 @@ describe('slotClass', () => {
   // A size-3 widget is full-width at `md` (2 of 2) and at `lg` (3 of 3).
   it('spans a size-3 widget across the whole row', () => {
     expect(slotClass({ size: 3, col: 0 })).toBe('md:col-span-2 lg:col-span-3 lg:col-start-1');
+  });
+});
+
+/** Shorthand: the (col, size) of each gap a row yields. */
+const gapsOf = (cells: ReturnType<typeof rowCells>) =>
+  cells.filter((c) => c.kind === 'gap').map((c) => (c.kind === 'gap' ? [c.gap.col, c.gap.size] : []));
+
+describe('rowCells', () => {
+  it('yields no gaps for a full row', () => {
+    const cells = rowCells([widget(0), widget(1), widget(2)]);
+    expect(gapsOf(cells)).toEqual([]);
+    expect(cells).toHaveLength(3);
+  });
+
+  it('reports the trailing hole of a partly-filled row', () => {
+    expect(gapsOf(rowCells([widget(0)]))).toEqual([[1, 2]]);
+    expect(gapsOf(rowCells([widget(0), widget(1)]))).toEqual([[2, 1]]);
+  });
+
+  it('reports a hole between two widgets (a delete in the middle)', () => {
+    const cells = rowCells([widget(0, { col: 0 }), widget(2, { col: 2 })]);
+    expect(gapsOf(cells)).toEqual([[1, 1]]);
+    // Cells stay in column order so the grid's auto-placement cursor advances.
+    expect(cells.map((c) => (c.kind === 'gap' ? 'gap' : 'widget'))).toEqual(['widget', 'gap', 'widget']);
+  });
+
+  it('accounts for a wide widget’s span', () => {
+    expect(gapsOf(rowCells([widget(0, { size: 2, col: 0 })]))).toEqual([[2, 1]]);
+    expect(gapsOf(rowCells([widget(0, { size: 1, col: 2 })]))).toEqual([[0, 2]]);
+    expect(gapsOf(rowCells([widget(0, { size: 3, col: 0 })]))).toEqual([]);
+  });
+
+  it('is empty for a row with no widgets', () => {
+    expect(rowCells([])).toEqual([]);
+  });
+});
+
+describe('boardCells', () => {
+  it('expands every row, top to bottom, holes included', () => {
+    // Row 0 full; row 1 holds one widget, so it trails a 2-wide hole.
+    const cells = boardCells([widget(0), widget(1), widget(2), widget(3)]);
+    const gaps = cells.filter((c) => c.kind === 'gap').map((c) => (c.kind === 'gap' ? c.gap : null));
+    expect(gaps).toEqual([{ row: 1, col: 1, size: 2 }]);
+    expect(cells.filter((c) => c.kind === 'widget')).toHaveLength(4);
   });
 });
 

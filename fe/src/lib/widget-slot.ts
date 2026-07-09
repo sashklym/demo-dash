@@ -31,6 +31,57 @@ export function slotClass(widget: Pick<Widget, 'size' | 'col'>): string {
   return cn(SPAN_CLASS[widget.size], START_CLASS[widget.col]);
 }
 
+/** The canonical grid width, mirroring the server's `core/place-widget`. */
+export const COLUMNS = 3;
+
+/** A run of columns in a row that no widget occupies. */
+export interface Gap {
+  row: number;
+  col: number;
+  size: number;
+}
+
+export type SlotCell = { kind: 'widget'; widget: Widget } | { kind: 'gap'; gap: Gap };
+
+/**
+ * One row's widgets, in column order, with its holes made explicit.
+ *
+ * A hole is any run of columns between — or after — the row's widgets: left by a
+ * delete, or by a wide widget that couldn't fit in the tail of the row above. The
+ * cells come back sorted by column so their DOM order matches the grid's
+ * auto-placement cursor, which is what stops an explicit `col-start` from wrapping.
+ */
+export function rowCells(widgets: Widget[]): SlotCell[] {
+  if (widgets.length === 0) return [];
+  const sorted = [...widgets].sort((a, b) => a.col - b.col);
+  const row = sorted[0]!.row;
+  const cells: SlotCell[] = [];
+  let cursor = 0;
+
+  for (const widget of sorted) {
+    if (widget.col > cursor) {
+      cells.push({ kind: 'gap', gap: { row, col: cursor, size: widget.col - cursor } });
+    }
+    cells.push({ kind: 'widget', widget });
+    cursor = widget.col + widget.size;
+  }
+  if (cursor < COLUMNS) {
+    cells.push({ kind: 'gap', gap: { row, col: cursor, size: COLUMNS - cursor } });
+  }
+  return cells;
+}
+
+/** Every row of a board, top to bottom, each expanded into its widgets and holes. */
+export function boardCells(items: Widget[]): SlotCell[] {
+  const byRow = new Map<number, Widget[]>();
+  for (const widget of items) {
+    const row = byRow.get(widget.row);
+    if (row) row.push(widget);
+    else byRow.set(widget.row, [widget]);
+  }
+  return [...byRow.entries()].sort(([a], [b]) => a - b).flatMap(([, widgets]) => rowCells(widgets));
+}
+
 export type MoveTarget = 'start' | 'prev' | 'next' | 'end';
 
 /**
